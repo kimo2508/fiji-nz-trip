@@ -99,56 +99,66 @@ export default function TripPlanner() {
 
   const addDay = async () => {
     if (!dayForm.date || !dayForm.location) return;
-    await supabase.from("itinerary_days").insert({ date:dayForm.date, location:dayForm.location, notes:dayForm.notes });
+    const { error } = await supabase.from("itinerary_days").insert({ date:dayForm.date, location:dayForm.location, notes:dayForm.notes });
+    if (error) { alert("Error: " + error.message); return; }
     setDayForm({ date:"", location:"", notes:"" });
     closeModal();
+    loadAll();
   };
 
   const deleteDay = async (id) => {
     await supabase.from("itinerary_days").delete().eq("id", id);
     if (activeDay === id) setActiveDay(null);
+    loadAll();
   };
 
   const addItem = async () => {
     if (!itemForm.title || !activeDay) return;
-    await supabase.from("itinerary_items").insert({ day_id:activeDay, category:itemForm.category, title:itemForm.title, details:itemForm.details, time:itemForm.time, confirmed:false });
+    const { error } = await supabase.from("itinerary_items").insert({ day_id:activeDay, category:itemForm.category, title:itemForm.title, details:itemForm.details, time:itemForm.time, confirmed:false });
+    if (error) { alert("Error: " + error.message); return; }
     setItemForm({ category:"🗺️ Sightseeing", title:"", time:"", details:"" });
     closeModal();
   };
 
   const toggleItem = async (item) => {
     await supabase.from("itinerary_items").update({ confirmed:!item.confirmed }).eq("id", item.id);
+    loadAll();
   };
 
-  const deleteItem = async (id) => { await supabase.from("itinerary_items").delete().eq("id", id); };
+  const deleteItem = async (id) => { await supabase.from("itinerary_items").delete().eq("id", id); loadAll(); };
 
   const addFlight = async () => {
     if (!flightForm.from_location || !flightForm.to_location) return;
-    await supabase.from("flights").insert(flightForm);
+    const { error } = await supabase.from("flights").insert(flightForm);
+    if (error) { alert("Error: " + error.message); return; }
     setFlightForm({ from_location:"", to_location:"", airline:"", flight_number:"", departure:"", arrival:"", confirmation:"" });
     closeModal();
+    loadAll();
   };
 
-  const deleteFlight = async (id) => { await supabase.from("flights").delete().eq("id", id); };
+  const deleteFlight = async (id) => { await supabase.from("flights").delete().eq("id", id); loadAll(); };
 
   const addHotel = async () => {
     if (!hotelForm.name || !hotelForm.location) return;
-    await supabase.from("hotels").insert(hotelForm);
+    const { error } = await supabase.from("hotels").insert(hotelForm);
+    if (error) { alert("Error: " + error.message); return; }
     setHotelForm({ name:"", location:"", check_in:"", check_out:"", confirmation:"", notes:"" });
     closeModal();
+    loadAll();
   };
 
-  const deleteHotel = async (id) => { await supabase.from("hotels").delete().eq("id", id); };
+  const deleteHotel = async (id) => { await supabase.from("hotels").delete().eq("id", id); loadAll(); };
 
   const addPackingItem = async () => {
     if (!packForm.item) return;
-    await supabase.from("packing_items").insert({ category:packForm.category, item:packForm.item, packed:false });
+    const { error } = await supabase.from("packing_items").insert({ category:packForm.category, item:packForm.item, packed:false });
+    if (error) { alert("Error: " + error.message); return; }
     setPackForm({ category:"Clothing", item:"" });
     closeModal();
   };
 
-  const togglePacked = async (item) => { await supabase.from("packing_items").update({ packed:!item.packed }).eq("id", item.id); };
-  const deletePackingItem = async (id) => { await supabase.from("packing_items").delete().eq("id", id); };
+  const togglePacked = async (item) => { await supabase.from("packing_items").update({ packed:!item.packed }).eq("id", item.id); loadAll(); };
+  const deletePackingItem = async (id) => { await supabase.from("packing_items").delete().eq("id", id); loadAll(); };
 
   const packedCount = packing.filter(p => p.packed).length;
   const activeDayItems = items.filter(i => i.day_id === activeDay);
