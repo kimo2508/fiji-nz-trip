@@ -3,6 +3,16 @@ import { supabase } from "./supabase";
 
 const TRIP_START = "2026-05-18";
 const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
+
+const PACKING_SUGGESTIONS = {
+  "Clothing": ["T-shirts","Shorts","Swimsuit","Underwear","Socks","Light jacket","Casual dress / shirt","Sandals","Sneakers","Flip flops","Sun hat","Sunglasses","Belt","Pajamas","Rain jacket"],
+  "Toiletries": ["Toothbrush","Toothpaste","Deodorant","Shampoo","Conditioner","Body wash","Razor","Face wash","Moisturizer","Lip balm","Cotton swabs","Nail clippers","Hair brush"],
+  "Documents": ["Passport","Driver license","Travel insurance docs","Flight confirmations","Hotel confirmations","Vaccination records","Emergency contacts","Credit cards","Cash (USD)","Fiji dollars","Travel itinerary"],
+  "Electronics": ["Phone","Phone charger","Portable battery pack","Headphones","Camera","Camera charger","Memory cards","Universal adapter","Laptop","Laptop charger","Apple Watch charger","Kindle or tablet"],
+  "Health": ["Prescription medications","Pain relievers","Antihistamines","Motion sickness pills","Diarrhea medication","Antacids","Band-aids","Antiseptic wipes","Insect repellent","Hand sanitizer","Vitamins"],
+  "Beach & Water": ["Sunscreen SPF 50+","After sun lotion","Snorkel mask","Snorkel fins","Waterproof phone case","Beach towel","Dry bag","Underwater camera","Rash guard","Water shoes","Beach bag"],
+  "Misc": ["Reusable water bottle","Travel pillow","Eye mask","Earplugs","Snacks for flight","Pen for customs forms","Luggage locks","Packing cubes","Laundry bag","Umbrella","Ziplock bags"],
+};
 const ACTIVITY_CATEGORIES = ["🍽️ Restaurant", "🏄 Activity", "🗺️ Sightseeing", "🚗 Transport", "📝 Note"];
 const CAT_COLORS = {
   "🍽️ Restaurant": "#f4a261", "🏄 Activity": "#2a9d8f",
@@ -478,15 +488,32 @@ export default function TripPlanner() {
       )}
 
       {showModal==="packing" && (
-        <Modal title="Add Packing Item" onSave={addPackingItem} onClose={closeModal}>
+        <Modal title="Add Packing Items" onSave={addPackingItem} onClose={closeModal}>
           <div style={S.lbl}>CATEGORY</div>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
             {PACKING_CATEGORIES.map(cat=>(
               <button key={cat} onClick={()=>setPackForm(p=>({...p,category:cat}))} style={{ ...S.sBtn(packForm.category===cat), fontSize:12 }}>{cat}</button>
             ))}
           </div>
-          <div style={S.lbl}>ITEM</div>
-          <input style={S.inp} placeholder="e.g. Sunscreen SPF 50" value={packForm.item} onChange={e=>setPackForm(p=>({...p,item:e.target.value}))}/>
+          <div style={S.lbl}>COMMON ITEMS — TAP TO ADD</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16, maxHeight:200, overflowY:"auto", padding:"4px 0" }}>
+            {(PACKING_SUGGESTIONS[packForm.category]||[])
+              .filter(s => !packing.some(p => p.item.toLowerCase()===s.toLowerCase() && p.category===packForm.category))
+              .map(suggestion => (
+                <button key={suggestion} onClick={async()=>{
+                  const{error}=await supabase.from("packing_items").insert({category:packForm.category,item:suggestion,packed:false});
+                  if(!error) loadAll();
+                }} style={{ padding:"6px 12px", borderRadius:20, border:"1px solid #c8e8e8", background:"#f0fafa", cursor:"pointer", fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:600, color:"#005f73" }}>
+                  + {suggestion}
+                </button>
+              ))
+            }
+            {(PACKING_SUGGESTIONS[packForm.category]||[]).filter(s=>!packing.some(p=>p.item.toLowerCase()===s.toLowerCase()&&p.category===packForm.category)).length===0&&(
+              <div style={{fontFamily:"Nunito,sans-serif",fontSize:12,color:"#aaa",padding:"8px 0"}}>All common items already added!</div>
+            )}
+          </div>
+          <div style={S.lbl}>ADD CUSTOM ITEM</div>
+          <input style={S.inp} placeholder="Type anything not listed above..." value={packForm.item} onChange={e=>setPackForm(p=>({...p,item:e.target.value}))}/>
         </Modal>
       )}
     </div>
