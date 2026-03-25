@@ -42,7 +42,7 @@ const S = {
 };
 
 // ── Modal wrapper (defined OUTSIDE main component so it never remounts) ───────
-function Modal({ title, onSave, onClose, children }) {
+function Modal({ title, onSave, onClose, children, saving }) {
   return (
     <div style={S.modal} onClick={onClose}>
       <div style={S.modalBox} onClick={e => e.stopPropagation()}>
@@ -51,7 +51,7 @@ function Modal({ title, onSave, onClose, children }) {
           <button onClick={onClose} style={{ background:"#f0f0f0", border:"none", width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:18, color:"#888" }}>×</button>
         </div>
         {children}
-        <button onClick={onSave} style={{ ...S.btn(), marginTop:12 }}>SAVE</button>
+        <button onClick={onSave} disabled={saving} style={{ ...S.btn(), marginTop:12, opacity:saving?0.7:1 }}>{saving ? "SAVING..." : "SAVE"}</button>
       </div>
     </div>
   );
@@ -67,6 +67,8 @@ export default function TripPlanner() {
   const [loading, setLoading] = useState(true);
   const [activeDay, setActiveDay] = useState(null);
   const [showModal, setShowModal] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState("");
   const [packFilter, setPackFilter] = useState("All");
 
   // Separate state for each form to avoid re-render issues
@@ -107,12 +109,19 @@ export default function TripPlanner() {
 
   const closeModal = () => setShowModal(null);
 
+  const flashSuccess = (msg="Saved!") => {
+    setSaveSuccess(msg);
+    setTimeout(() => setSaveSuccess(""), 2000);
+  };
+
   const addDay = async () => {
     if (!dayForm.date || !dayForm.location) return;
+    setSaving(true);
     const { error } = await supabase.from("itinerary_days").insert({ date:dayForm.date, location:dayForm.location, notes:dayForm.notes });
+    setSaving(false);
     if (error) { alert("Error: " + error.message); return; }
     setDayForm({ date:"", location:"", notes:"" });
-    closeModal();
+    closeModal(); flashSuccess("Day added! 📅");
     loadAll();
   };
 
@@ -139,10 +148,12 @@ export default function TripPlanner() {
 
   const addFlight = async () => {
     if (!flightForm.from_location || !flightForm.to_location) return;
+    setSaving(true);
     const { error } = await supabase.from("flights").insert(flightForm);
+    setSaving(false);
     if (error) { alert("Error: " + error.message); return; }
     setFlightForm({ from_location:"", to_location:"", airline:"", flight_number:"", departure:"", arrival:"", confirmation:"" });
-    closeModal();
+    closeModal(); flashSuccess("Flight saved! ✈️");
     loadAll();
   };
 
@@ -150,10 +161,12 @@ export default function TripPlanner() {
 
   const addHotel = async () => {
     if (!hotelForm.name || !hotelForm.location) return;
+    setSaving(true);
     const { error } = await supabase.from("hotels").insert(hotelForm);
+    setSaving(false);
     if (error) { alert("Error: " + error.message); return; }
     setHotelForm({ name:"", location:"", check_in:"", check_out:"", confirmation:"", notes:"" });
-    closeModal();
+    closeModal(); flashSuccess("Hotel saved! 🏨");
     loadAll();
   };
 
@@ -185,6 +198,11 @@ export default function TripPlanner() {
 
   return (
     <div style={S.app}>
+      {saveSuccess&&(
+        <div style={{ position:"fixed", bottom:100, left:"50%", transform:"translateX(-50%)", background:"#0a9396", color:"#fff", padding:"12px 24px", borderRadius:30, fontFamily:"Nunito,sans-serif", fontWeight:800, fontSize:14, zIndex:999, boxShadow:"0 4px 20px rgba(0,100,100,0.3)", whiteSpace:"nowrap" }}>
+          {saveSuccess}
+        </div>
+      )}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
@@ -424,7 +442,7 @@ export default function TripPlanner() {
 
       {/* ── MODALS ── */}
       {showModal==="day" && (
-        <Modal title="Add Day" onSave={addDay} onClose={closeModal}>
+        <Modal title="Add Day" onSave={addDay} onClose={closeModal} saving={saving}>
           <div style={S.lbl}>DATE</div>
           <input type="date" style={S.inp} value={dayForm.date} onChange={e=>setDayForm(p=>({...p,date:e.target.value}))}/>
           <div style={S.lbl}>LOCATION</div>
@@ -435,7 +453,7 @@ export default function TripPlanner() {
       )}
 
       {showModal==="item" && (
-        <Modal title="Add Activity" onSave={addItem} onClose={closeModal}>
+        <Modal title="Add Activity" onSave={addItem} onClose={closeModal} saving={saving}>
           <div style={S.lbl}>CATEGORY</div>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
             {ACTIVITY_CATEGORIES.map(cat=>(
@@ -452,7 +470,7 @@ export default function TripPlanner() {
       )}
 
       {showModal==="flight" && (
-        <Modal title="Add Flight" onSave={addFlight} onClose={closeModal}>
+        <Modal title="Add Flight" onSave={addFlight} onClose={closeModal} saving={saving}>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             <div><div style={S.lbl}>FROM</div><input style={S.inp} placeholder="Los Angeles" value={flightForm.from_location} onChange={e=>setFlightForm(p=>({...p,from_location:e.target.value}))}/></div>
             <div><div style={S.lbl}>TO</div><input style={S.inp} placeholder="Nadi, Fiji" value={flightForm.to_location} onChange={e=>setFlightForm(p=>({...p,to_location:e.target.value}))}/></div>
@@ -471,7 +489,7 @@ export default function TripPlanner() {
       )}
 
       {showModal==="hotel" && (
-        <Modal title="Add Hotel" onSave={addHotel} onClose={closeModal}>
+        <Modal title="Add Hotel" onSave={addHotel} onClose={closeModal} saving={saving}>
           <div style={S.lbl}>HOTEL NAME</div>
           <input style={S.inp} placeholder="e.g. Sheraton Fiji Resort" value={hotelForm.name} onChange={e=>setHotelForm(p=>({...p,name:e.target.value}))}/>
           <div style={S.lbl}>LOCATION</div>
@@ -488,7 +506,7 @@ export default function TripPlanner() {
       )}
 
       {showModal==="packing" && (
-        <Modal title="Add Packing Items" onSave={addPackingItem} onClose={closeModal}>
+        <Modal title="Add Packing Items" onSave={addPackingItem} onClose={closeModal} saving={saving}>
           <div style={S.lbl}>CATEGORY</div>
           <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
             {PACKING_CATEGORIES.map(cat=>(
