@@ -2,61 +2,244 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 
 const TRIP_START = "2026-05-18";
-const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
 
-const PACKING_SUGGESTIONS = {
-  "Clothing": ["T-shirts","Shorts","Swimsuit","Underwear","Socks","Light jacket","Casual dress / shirt","Sandals","Sneakers","Flip flops","Sun hat","Sunglasses","Belt","Pajamas","Rain jacket"],
-  "Toiletries": ["Toothbrush","Toothpaste","Deodorant","Shampoo","Conditioner","Body wash","Razor","Face wash","Moisturizer","Lip balm","Cotton swabs","Nail clippers","Hair brush"],
-  "Documents": ["Passport","Driver license","Travel insurance docs","Flight confirmations","Hotel confirmations","Vaccination records","Emergency contacts","Credit cards","Cash (USD)","Fiji dollars","Travel itinerary"],
-  "Electronics": ["Phone","Phone charger","Portable battery pack","Headphones","Camera","Camera charger","Memory cards","Universal adapter","Laptop","Laptop charger","Apple Watch charger","Kindle or tablet"],
-  "Health": ["Prescription medications","Pain relievers","Antihistamines","Motion sickness pills","Diarrhea medication","Antacids","Band-aids","Antiseptic wipes","Insect repellent","Hand sanitizer","Vitamins"],
-  "Beach & Water": ["Sunscreen SPF 50+","After sun lotion","Snorkel mask","Snorkel fins","Waterproof phone case","Beach towel","Dry bag","Underwater camera","Rash guard","Water shoes","Beach bag"],
-  "Misc": ["Reusable water bottle","Travel pillow","Eye mask","Earplugs","Snacks for flight","Pen for customs forms","Luggage locks","Packing cubes","Laundry bag","Umbrella","Ziplock bags"],
-};
+const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
 const ACTIVITY_CATEGORIES = ["🍽️ Restaurant", "🏄 Activity", "🗺️ Sightseeing", "🚗 Transport", "📝 Note"];
 const CAT_COLORS = {
-  "🍽️ Restaurant": "#f4a261", "🏄 Activity": "#2a9d8f",
-  "🗺️ Sightseeing": "#e76f51", "🚗 Transport": "#457b9d", "📝 Note": "#a8dadc",
+  "🍽️ Restaurant": "#f4a261",
+  "🏄 Activity": "#2a9d8f",
+  "🗺️ Sightseeing": "#e76f51",
+  "🚗 Transport": "#457b9d",
+  "📝 Note": "#a8dadc",
 };
+const ESTIMATE_CATEGORIES = ["Food & Dining", "Transportation", "Activities", "Shopping", "Groceries", "Misc"];
 
 const daysUntil = () => {
   const diff = new Date(TRIP_START) - new Date();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 };
 
-// ── Styles (defined outside component so they never change) ───────────────────
-const S = {
-  app: { minHeight:"100vh", background:"#f0f9f9", fontFamily:"'Nunito',sans-serif", color:"#1a3a3a", maxWidth:480, margin:"0 auto", paddingBottom:90 },
-  hdr: { background:"linear-gradient(135deg,#0a9396 0%,#005f73 100%)", padding:"20px 20px 60px", position:"relative", overflow:"hidden" },
-  nav: { display:"flex", background:"#fff", borderBottom:"1px solid #e0f0f0", overflowX:"auto", position:"sticky", top:0, zIndex:50, boxShadow:"0 2px 8px rgba(0,100,100,0.08)" },
-  nb: (a) => ({ flex:"0 0 auto", padding:"12px 14px", border:"none", cursor:"pointer", fontFamily:"Nunito,sans-serif", fontSize:11, fontWeight:700, letterSpacing:1, whiteSpace:"nowrap", background:a?"#0a9396":"transparent", color:a?"#fff":"#888", borderBottom:a?"2px solid #0a9396":"2px solid transparent" }),
-  sec: { padding:16 },
-  card: { background:"#fff", borderRadius:16, padding:16, marginBottom:12, boxShadow:"0 2px 12px rgba(0,100,100,0.06)" },
-  btn: (v="primary") => ({ width:"100%", padding:"13px", borderRadius:12, border:"none", cursor:"pointer", fontFamily:"Nunito,sans-serif", fontSize:15, fontWeight:800, letterSpacing:1, background:v==="primary"?"linear-gradient(135deg,#0a9396,#005f73)":v==="coral"?"linear-gradient(135deg,#e76f51,#c9503a)":"#f0f9f9", color:v==="ghost"?"#aaa":"#fff" }),
-  sBtn: (active=false, color="#0a9396") => ({ padding:"7px 12px", borderRadius:20, border:`1px solid ${active?color:"#ddd"}`, cursor:"pointer", fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:700, background:active?color:"#fff", color:active?"#fff":"#888" }),
-  inp: { width:"100%", padding:"11px 14px", background:"#f8fefe", border:"1px solid #c8e8e8", borderRadius:10, color:"#1a3a3a", fontFamily:"Nunito,sans-serif", fontSize:16, outline:"none", marginBottom:10, WebkitAppearance:"none" },
-  lbl: { fontFamily:"Nunito,sans-serif", fontSize:11, fontWeight:800, color:"#0a9396", letterSpacing:1, marginBottom:4, display:"block", textTransform:"uppercase" },
-  tag: (color) => ({ background:color+"22", color, padding:"3px 8px", borderRadius:20, fontSize:11, fontWeight:700, display:"inline-block" }),
-  modal: { position:"fixed", inset:0, background:"rgba(0,60,60,0.6)", zIndex:300, display:"flex", alignItems:"flex-end" },
-  modalBox: { background:"#fff", borderRadius:"20px 20px 0 0", padding:"24px 20px 40px", width:"100%", maxHeight:"88vh", overflowY:"auto" },
+const fmt = (n) => {
+  const num = parseFloat(n) || 0;
+  return num.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
-// ── Modal wrapper (defined OUTSIDE main component so it never remounts) ───────
-function Modal({ title, onSave, onClose, children, saving }) {
+const nightsBetween = (checkIn, checkOut) => {
+  if (!checkIn || !checkOut) return 0;
+  const diff = new Date(checkOut) - new Date(checkIn);
+  return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
+};
+
+// ─── STYLES ──────────────────────────────────────────────────────────────────
+const S = {
+  wrap: {
+    maxWidth: 480,
+    margin: "0 auto",
+    minHeight: "100vh",
+    background: "#f0f9f9",
+    fontFamily: "'Nunito', sans-serif",
+    paddingBottom: 80,
+  },
+  hero: {
+    background: "linear-gradient(135deg, #0a9396 0%, #005f73 100%)",
+    padding: "28px 20px 48px",
+    position: "relative",
+    overflow: "hidden",
+  },
+  heroTitle: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: 26,
+    color: "#fff",
+    margin: 0,
+    letterSpacing: 0.5,
+  },
+  heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600 },
+  statRow: { marginTop: 16, display: "flex", gap: 10 },
+  stat: {
+    background: "rgba(255,255,255,0.15)",
+    borderRadius: 12,
+    padding: "10px 12px",
+    textAlign: "center",
+    flex: 1,
+  },
+  statNum: { fontFamily: "'Playfair Display',serif", fontSize: 24, color: "#fff", lineHeight: 1 },
+  statLabel: { fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1, marginTop: 2 },
+  nav: {
+    position: "sticky",
+    top: 0,
+    zIndex: 100,
+    background: "#fff",
+    display: "flex",
+    overflowX: "auto",
+    borderBottom: "2px solid #e0f2f1",
+    scrollbarWidth: "none",
+  },
+  nb: (active) => ({
+    flex: "0 0 auto",
+    padding: "12px 14px",
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 0.5,
+    border: "none",
+    background: "none",
+    color: active ? "#0a9396" : "#90a4ae",
+    borderBottom: active ? "2px solid #0a9396" : "2px solid transparent",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "all 0.15s",
+  }),
+  sec: { padding: "16px 16px 0" },
+  card: {
+    background: "#fff",
+    borderRadius: 14,
+    padding: "14px 16px",
+    marginBottom: 12,
+    boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
+  },
+  label: { fontSize: 10, fontWeight: 800, color: "#0a9396", letterSpacing: 1.5, marginBottom: 8 },
+  input: {
+    width: "100%",
+    padding: "10px 12px",
+    border: "1.5px solid #e0f2f1",
+    borderRadius: 10,
+    fontSize: 14,
+    fontFamily: "'Nunito', sans-serif",
+    background: "#f8fdfd",
+    color: "#1a2e35",
+    outline: "none",
+    boxSizing: "border-box",
+    marginBottom: 8,
+  },
+  priceInput: {
+    padding: "10px 12px",
+    border: "1.5px solid #b2dfdb",
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 700,
+    fontFamily: "'Nunito', sans-serif",
+    background: "#e8f5e9",
+    color: "#2e7d32",
+    outline: "none",
+    boxSizing: "border-box",
+    marginBottom: 8,
+    width: "100%",
+  },
+  select: {
+    width: "100%",
+    padding: "10px 12px",
+    border: "1.5px solid #e0f2f1",
+    borderRadius: 10,
+    fontSize: 14,
+    fontFamily: "'Nunito', sans-serif",
+    background: "#f8fdfd",
+    color: "#1a2e35",
+    outline: "none",
+    marginBottom: 8,
+  },
+  btn: (color = "#0a9396") => ({
+    background: color,
+    color: "#fff",
+    border: "none",
+    borderRadius: 10,
+    padding: "11px 20px",
+    fontSize: 13,
+    fontWeight: 700,
+    fontFamily: "'Nunito', sans-serif",
+    cursor: "pointer",
+    width: "100%",
+    marginTop: 4,
+  }),
+  btnSm: (color = "#0a9396") => ({
+    background: color,
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "6px 12px",
+    fontSize: 11,
+    fontWeight: 700,
+    fontFamily: "'Nunito', sans-serif",
+    cursor: "pointer",
+  }),
+  del: {
+    background: "none",
+    border: "none",
+    color: "#b0bec5",
+    fontSize: 18,
+    cursor: "pointer",
+    padding: "2px 6px",
+    lineHeight: 1,
+  },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.45)",
+    zIndex: 200,
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  sheet: {
+    background: "#fff",
+    borderRadius: "20px 20px 0 0",
+    padding: "24px 20px 40px",
+    width: "100%",
+    maxWidth: 480,
+    maxHeight: "90vh",
+    overflowY: "auto",
+  },
+  row: { display: "flex", gap: 8, alignItems: "center" },
+  chip: (color) => ({
+    display: "inline-block",
+    padding: "3px 9px",
+    borderRadius: 20,
+    fontSize: 11,
+    fontWeight: 700,
+    background: color + "20",
+    color: color,
+    marginRight: 4,
+  }),
+  priceTag: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    padding: "3px 8px",
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 800,
+    background: "#e8f5e9",
+    color: "#2e7d32",
+    marginLeft: "auto",
+  },
+  budgetCard: (accent) => ({
+    background: "#fff",
+    borderRadius: 14,
+    padding: "14px 16px",
+    marginBottom: 10,
+    boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
+    borderLeft: `4px solid ${accent}`,
+  }),
+  totalBanner: (bg, text) => ({
+    background: bg,
+    borderRadius: 16,
+    padding: "16px 18px",
+    marginBottom: 12,
+    textAlign: "center",
+    color: text,
+  }),
+};
+
+// ─── MODAL WRAPPER ────────────────────────────────────────────────────────────
+function Modal({ onClose, children }) {
   return (
-    <div style={S.modal} onClick={onClose}>
-      <div style={S.modalBox} onClick={e => e.stopPropagation()}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <div style={{ fontSize:20, fontWeight:800, color:"#005f73", fontFamily:"'Playfair Display',serif" }}>{title}</div>
-          <button onClick={onClose} style={{ background:"#f0f0f0", border:"none", width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:18, color:"#888" }}>×</button>
-        </div>
+    <div style={S.overlay} onClick={onClose}>
+      <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
         {children}
-        <button onClick={onSave} disabled={saving} style={{ ...S.btn(), marginTop:12, opacity:saving?0.7:1 }}>{saving ? "SAVING..." : "SAVE"}</button>
       </div>
     </div>
   );
 }
 
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function TripPlanner() {
   const [tab, setTab] = useState("home");
   const [days, setDays] = useState([]);
@@ -64,474 +247,846 @@ export default function TripPlanner() {
   const [flights, setFlights] = useState([]);
   const [hotels, setHotels] = useState([]);
   const [packing, setPacking] = useState([]);
+  const [estimates, setEstimates] = useState([]);
+  const [tripBudget, setTripBudget] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeDay, setActiveDay] = useState(null);
   const [showModal, setShowModal] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState("");
+  const [form, setForm] = useState({});
   const [packFilter, setPackFilter] = useState("All");
+  const [editItem, setEditItem] = useState(null);
 
-  // Separate state for each form to avoid re-render issues
-  const [dayForm, setDayForm] = useState({ date:"", location:"", notes:"" });
-  const [itemForm, setItemForm] = useState({ category:"🗺️ Sightseeing", title:"", time:"", details:"" });
-  const [flightForm, setFlightForm] = useState({ from_location:"", to_location:"", airline:"", flight_number:"", departure:"", arrival:"", confirmation:"" });
-  const [hotelForm, setHotelForm] = useState({ name:"", location:"", check_in:"", check_out:"", confirmation:"", notes:"" });
-  const [packForm, setPackForm] = useState({ category:"Clothing", item:"" });
-
-  const loadAll = useCallback(async () => {
-    const [d, i, f, h, p] = await Promise.all([
+  // ── LOAD DATA ──────────────────────────────────────────────────────────────
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [d, it, fl, ho, pk, est, tb] = await Promise.all([
       supabase.from("itinerary_days").select("*").order("date"),
       supabase.from("itinerary_items").select("*").order("time"),
       supabase.from("flights").select("*").order("departure"),
       supabase.from("hotels").select("*").order("check_in"),
       supabase.from("packing_items").select("*").order("category"),
+      supabase.from("budget_estimates").select("*").order("sort_order"),
+      supabase.from("trip_budget").select("*").limit(1),
     ]);
-    if (d.data) setDays(d.data);
-    if (i.data) setItems(i.data);
-    if (f.data) setFlights(f.data);
-    if (h.data) setHotels(h.data);
-    if (p.data) setPacking(p.data);
+    setDays(d.data || []);
+    setItems(it.data || []);
+    setFlights(fl.data || []);
+    setHotels(ho.data || []);
+    setPacking(pk.data || []);
+    setEstimates(est.data || []);
+    if (tb.data && tb.data.length > 0) setTripBudget(parseFloat(tb.data[0].total_budget) || 0);
     setLoading(false);
   }, []);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const channels = [
-      supabase.channel("days-ch").on("postgres_changes", { event:"*", schema:"public", table:"itinerary_days" }, loadAll).subscribe(),
-      supabase.channel("items-ch").on("postgres_changes", { event:"*", schema:"public", table:"itinerary_items" }, loadAll).subscribe(),
-      supabase.channel("flights-ch").on("postgres_changes", { event:"*", schema:"public", table:"flights" }, loadAll).subscribe(),
-      supabase.channel("hotels-ch").on("postgres_changes", { event:"*", schema:"public", table:"hotels" }, loadAll).subscribe(),
-      supabase.channel("packing-ch").on("postgres_changes", { event:"*", schema:"public", table:"packing_items" }, loadAll).subscribe(),
-    ];
-    return () => channels.forEach(c => supabase.removeChannel(c));
-  }, [loadAll]);
+  const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
-  const closeModal = () => setShowModal(null);
+  // ── BUDGET CALCULATIONS ────────────────────────────────────────────────────
+  const flightsTotal = flights.reduce((s, fl) => s + (parseFloat(fl.price) || 0), 0);
+  const hotelsTotal = hotels.reduce((s, h) => {
+    const nights = nightsBetween(h.check_in, h.check_out);
+    return s + nights * (parseFloat(h.price_per_night) || 0);
+  }, 0);
+  const bookedActivities = items.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
+  const confirmedTotal = flightsTotal + hotelsTotal + bookedActivities;
+  const estimatesTotal = estimates.reduce((s, e) => s + (parseFloat(e.daily_amount) || 0) * (parseInt(e.days) || 1), 0);
+  const grandTotal = confirmedTotal + estimatesTotal;
+  const remaining = tripBudget - grandTotal;
 
-  const flashSuccess = (msg="Saved!") => {
-    setSaveSuccess(msg);
-    setTimeout(() => setSaveSuccess(""), 2000);
+  // ── CRUD HELPERS ───────────────────────────────────────────────────────────
+  const closeModal = () => { setShowModal(null); setForm({}); setEditItem(null); };
+
+  const saveDay = async () => {
+    if (!form.date) return;
+    if (editItem) {
+      await supabase.from("itinerary_days").update({ date: form.date, location: form.location || "", notes: form.notes || "" }).eq("id", editItem.id);
+    } else {
+      await supabase.from("itinerary_days").insert({ date: form.date, location: form.location || "", notes: form.notes || "" });
+    }
+    closeModal(); load();
   };
 
-  const addDay = async () => {
-    if (!dayForm.date || !dayForm.location) return;
-    setSaving(true);
-    const { error } = await supabase.from("itinerary_days").insert({ date:dayForm.date, location:dayForm.location, notes:dayForm.notes });
-    setSaving(false);
-    if (error) { alert("Error: " + error.message); return; }
-    setDayForm({ date:"", location:"", notes:"" });
-    closeModal(); flashSuccess("Day added! 📅");
-    loadAll();
+  const saveItem = async () => {
+    if (!form.title || !activeDay) return;
+    const payload = {
+      day_id: activeDay,
+      category: form.category || ACTIVITY_CATEGORIES[0],
+      title: form.title,
+      details: form.details || "",
+      time: form.time || "",
+      confirmed: form.confirmed === "true" || form.confirmed === true,
+      price: parseFloat(form.price) || 0,
+      is_booked: form.is_booked === "true" || form.is_booked === true,
+    };
+    if (editItem) {
+      await supabase.from("itinerary_items").update(payload).eq("id", editItem.id);
+    } else {
+      await supabase.from("itinerary_items").insert(payload);
+    }
+    closeModal(); load();
   };
 
-  const deleteDay = async (id) => {
-    await supabase.from("itinerary_days").delete().eq("id", id);
-    if (activeDay === id) setActiveDay(null);
-    loadAll();
+  const saveFlight = async () => {
+    if (!form.flight_number) return;
+    const payload = {
+      flight_number: form.flight_number,
+      from_location: form.from_location || "",
+      to_location: form.to_location || "",
+      departure: form.departure || "",
+      arrival: form.arrival || "",
+      airline: form.airline || "",
+      confirmation: form.confirmation || "",
+      price: parseFloat(form.price) || 0,
+    };
+    if (editItem) {
+      await supabase.from("flights").update(payload).eq("id", editItem.id);
+    } else {
+      await supabase.from("flights").insert(payload);
+    }
+    closeModal(); load();
   };
 
-  const addItem = async () => {
-    if (!itemForm.title || !activeDay) return;
-    const { error } = await supabase.from("itinerary_items").insert({ day_id:activeDay, category:itemForm.category, title:itemForm.title, details:itemForm.details, time:itemForm.time, confirmed:false });
-    if (error) { alert("Error: " + error.message); return; }
-    setItemForm({ category:"🗺️ Sightseeing", title:"", time:"", details:"" });
-    closeModal();
+  const saveHotel = async () => {
+    if (!form.name) return;
+    const payload = {
+      name: form.name,
+      location: form.location || "",
+      check_in: form.check_in || "",
+      check_out: form.check_out || "",
+      confirmation: form.confirmation || "",
+      notes: form.notes || "",
+      price_per_night: parseFloat(form.price_per_night) || 0,
+    };
+    if (editItem) {
+      await supabase.from("hotels").update(payload).eq("id", editItem.id);
+    } else {
+      await supabase.from("hotels").insert(payload);
+    }
+    closeModal(); load();
   };
 
-  const toggleItem = async (item) => {
-    await supabase.from("itinerary_items").update({ confirmed:!item.confirmed }).eq("id", item.id);
-    loadAll();
+  const savePacking = async () => {
+    if (!form.item) return;
+    if (editItem) {
+      await supabase.from("packing_items").update({ item: form.item, category: form.category || "Misc" }).eq("id", editItem.id);
+    } else {
+      await supabase.from("packing_items").insert({ item: form.item, category: form.category || "Misc", packed: false });
+    }
+    closeModal(); load();
   };
 
-  const deleteItem = async (id) => { await supabase.from("itinerary_items").delete().eq("id", id); loadAll(); };
-
-  const addFlight = async () => {
-    if (!flightForm.from_location || !flightForm.to_location) return;
-    setSaving(true);
-    const { error } = await supabase.from("flights").insert(flightForm);
-    setSaving(false);
-    if (error) { alert("Error: " + error.message); return; }
-    setFlightForm({ from_location:"", to_location:"", airline:"", flight_number:"", departure:"", arrival:"", confirmation:"" });
-    closeModal(); flashSuccess("Flight saved! ✈️");
-    loadAll();
+  const saveEstimate = async () => {
+    if (!form.label) return;
+    const payload = {
+      label: form.label,
+      daily_amount: parseFloat(form.daily_amount) || 0,
+      days: parseInt(form.days) || 1,
+      category: form.category || ESTIMATE_CATEGORIES[0],
+      sort_order: estimates.length,
+    };
+    if (editItem) {
+      await supabase.from("budget_estimates").update(payload).eq("id", editItem.id);
+    } else {
+      await supabase.from("budget_estimates").insert(payload);
+    }
+    closeModal(); load();
   };
 
-  const deleteFlight = async (id) => { await supabase.from("flights").delete().eq("id", id); loadAll(); };
-
-  const addHotel = async () => {
-    if (!hotelForm.name || !hotelForm.location) return;
-    setSaving(true);
-    const { error } = await supabase.from("hotels").insert(hotelForm);
-    setSaving(false);
-    if (error) { alert("Error: " + error.message); return; }
-    setHotelForm({ name:"", location:"", check_in:"", check_out:"", confirmation:"", notes:"" });
-    closeModal(); flashSuccess("Hotel saved! 🏨");
-    loadAll();
+  const saveTripBudget = async (val) => {
+    const num = parseFloat(val) || 0;
+    setTripBudget(num);
+    const existing = await supabase.from("trip_budget").select("id").limit(1);
+    if (existing.data && existing.data.length > 0) {
+      await supabase.from("trip_budget").update({ total_budget: num }).eq("id", existing.data[0].id);
+    } else {
+      await supabase.from("trip_budget").insert({ total_budget: num });
+    }
   };
 
-  const deleteHotel = async (id) => { await supabase.from("hotels").delete().eq("id", id); loadAll(); };
-
-  const addPackingItem = async () => {
-    if (!packForm.item) return;
-    const { error } = await supabase.from("packing_items").insert({ category:packForm.category, item:packForm.item, packed:false });
-    if (error) { alert("Error: " + error.message); return; }
-    setPackForm({ category:"Clothing", item:"" });
-    closeModal();
+  const deleteRecord = async (table, id) => {
+    await supabase.from(table).delete().eq("id", id);
+    load();
   };
 
-  const togglePacked = async (item) => { await supabase.from("packing_items").update({ packed:!item.packed }).eq("id", item.id); loadAll(); };
-  const deletePackingItem = async (id) => { await supabase.from("packing_items").delete().eq("id", id); loadAll(); };
+  const togglePacked = async (id, packed) => {
+    await supabase.from("packing_items").update({ packed: !packed }).eq("id", id);
+    setPacking((p) => p.map((x) => (x.id === id ? { ...x, packed: !packed } : x)));
+  };
 
-  const packedCount = packing.filter(p => p.packed).length;
-  const activeDayItems = items.filter(i => i.day_id === activeDay);
-  const filteredPacking = packFilter === "All" ? packing : packing.filter(p => p.category === packFilter);
+  const toggleConfirmed = async (id, confirmed) => {
+    await supabase.from("itinerary_items").update({ confirmed: !confirmed }).eq("id", id);
+    setItems((p) => p.map((x) => (x.id === id ? { ...x, confirmed: !confirmed } : x)));
+  };
 
-  if (loading) return (
-    <div style={{ ...S.app, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:48, marginBottom:12 }}>🌺</div>
-        <div style={{ fontFamily:"Nunito,sans-serif", color:"#0a9396", fontWeight:700 }}>Loading your trip...</div>
+  const openEdit = (modal, record, extra = {}) => {
+    setEditItem(record);
+    setForm({ ...record, ...extra });
+    setShowModal(modal);
+  };
+
+  const packedCount = packing.filter((p) => p.packed).length;
+
+  if (loading) {
+    return (
+      <div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48 }}>🌺</div>
+          <div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading trip…</div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
-    <div style={S.app}>
-      {saveSuccess&&(
-        <div style={{ position:"fixed", bottom:100, left:"50%", transform:"translateX(-50%)", background:"#0a9396", color:"#fff", padding:"12px 24px", borderRadius:30, fontFamily:"Nunito,sans-serif", fontWeight:800, fontSize:14, zIndex:999, boxShadow:"0 4px 20px rgba(0,100,100,0.3)", whiteSpace:"nowrap" }}>
-          {saveSuccess}
-        </div>
-      )}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap');
-        *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:3px;height:3px}
-        ::-webkit-scrollbar-thumb{background:#0a9396;border-radius:2px}
-        input::placeholder,textarea::placeholder{color:#aacece}
-        select{appearance:none;-webkit-appearance:none;background:#f8fefe}
-        textarea{resize:none;font-family:Nunito,sans-serif;font-size:16px}
-        @keyframes su{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
-        .sl{animation:su 0.3s ease forwards}
-        .hov:active{background:#f0fafa!important}
-        @keyframes wave{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        .bob{animation:wave 3s ease-in-out infinite}
-      `}</style>
-
-      {/* HEADER */}
-      <div style={S.hdr}>
-        <div style={{ position:"absolute", top:-60, right:-40, width:200, height:200, background:"rgba(255,255,255,0.05)", borderRadius:"50%" }}/>
-        <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", fontWeight:700, letterSpacing:3, marginBottom:6 }}>YOUR ADVENTURE AWAITS</div>
-        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:28, color:"#fff", lineHeight:1.2, marginBottom:4 }}>Fiji & New Zealand</div>
-        <div style={{ fontSize:13, color:"rgba(255,255,255,0.8)", fontWeight:600 }}>May 2026 ✈️</div>
-        <div style={{ marginTop:16, display:"flex", gap:12 }}>
-          {[{ v:daysUntil(), l:"DAYS TO GO" },{ v:days.length, l:"DAYS PLANNED" },{ v:`${packedCount}/${packing.length}`, l:"PACKED" }].map((s,i) => (
-            <div key={i} style={{ background:"rgba(255,255,255,0.15)", borderRadius:12, padding:"10px 14px", textAlign:"center", flex:1 }}>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:28, color:"#fff", lineHeight:1 }}>{s.v}</div>
-              <div style={{ fontSize:9, color:"rgba(255,255,255,0.7)", fontWeight:700, letterSpacing:1 }}>{s.l}</div>
+    <div style={S.wrap}>
+      {/* HERO */}
+      <div style={S.hero}>
+        <p style={{ ...S.heroTitle, marginBottom: 4 }}>Fiji & New Zealand 🌴</p>
+        <div style={S.heroSub}>May 2026 ✈️</div>
+        <div style={S.statRow}>
+          {[
+            { v: daysUntil(), l: "DAYS TO GO" },
+            { v: days.length, l: "DAYS PLANNED" },
+            { v: `${packedCount}/${packing.length}`, l: "PACKED" },
+            { v: fmt(confirmedTotal), l: "CONFIRMED" },
+          ].map((s, i) => (
+            <div key={i} style={S.stat}>
+              <div style={{ ...S.statNum, fontSize: i === 3 ? 14 : 24 }}>{s.v}</div>
+              <div style={S.statLabel}>{s.l}</div>
             </div>
           ))}
         </div>
-        <svg style={{ position:"absolute", bottom:-2, left:0, right:0 }} viewBox="0 0 480 40" preserveAspectRatio="none" height="40"><path d="M0,20 C120,40 360,0 480,20 L480,40 L0,40 Z" fill="#f0f9f9"/></svg>
+        <svg style={{ position: "absolute", bottom: -2, left: 0, right: 0 }} viewBox="0 0 480 40" preserveAspectRatio="none" height="40">
+          <path d="M0,20 C120,40 360,0 480,20 L480,40 L0,40 Z" fill="#f0f9f9" />
+        </svg>
       </div>
 
       {/* NAV */}
       <div style={S.nav}>
-        {[{id:"home",l:"🏠 HOME"},{id:"itinerary",l:"📅 ITINERARY"},{id:"flights",l:"✈️ FLIGHTS"},{id:"hotels",l:"🏨 HOTELS"},{id:"packing",l:"🎒 PACKING"}].map(t=>(
-          <button key={t.id} style={S.nb(tab===t.id)} onClick={()=>setTab(t.id)}>{t.l}</button>
+        {[
+          { id: "home", l: "🏠 HOME" },
+          { id: "itinerary", l: "📅 ITINERARY" },
+          { id: "flights", l: "✈️ FLIGHTS" },
+          { id: "hotels", l: "🏨 HOTELS" },
+          { id: "packing", l: "🎒 PACKING" },
+          { id: "budget", l: "💰 BUDGET" },
+        ].map((t) => (
+          <button key={t.id} style={S.nb(tab === t.id)} onClick={() => setTab(t.id)}>
+            {t.l}
+          </button>
         ))}
       </div>
 
       {/* ── HOME ── */}
-      {tab==="home" && (
-        <div style={S.sec} className="sl">
-          <div style={{ fontFamily:"Nunito,sans-serif", fontSize:11, fontWeight:800, color:"#0a9396", letterSpacing:2, marginBottom:10 }}>DESTINATIONS</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
-            {[{ name:"Fiji", emoji:"🌺", desc:"Islands & beaches", bg:"linear-gradient(135deg,#e76f51,#c9503a)" },{ name:"New Zealand", emoji:"🌿", desc:"Adventure & nature", bg:"linear-gradient(135deg,#2a9d8f,#005f73)" }].map((d,i)=>(
-              <div key={i} style={{ background:d.bg, borderRadius:16, padding:"18px 14px", color:"#fff" }}>
-                <div className="bob" style={{ fontSize:32, marginBottom:8 }}>{d.emoji}</div>
-                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18 }}>{d.name}</div>
-                <div style={{ fontSize:11, opacity:0.8, marginTop:2 }}>{d.desc}</div>
+      {tab === "home" && (
+        <div style={S.sec}>
+          <div style={{ ...S.card, background: "linear-gradient(135deg, #e8f5e9, #f0f9f9)" }}>
+            <div style={S.label}>TRIP BUDGET SNAPSHOT</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
+                <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>BUDGET</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#1a2e35" }}>{fmt(tripBudget)}</div>
+              </div>
+              <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
+                <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>PROJECTED</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#e76f51" }}>{fmt(grandTotal)}</div>
+              </div>
+              <div style={{ flex: 1, textAlign: "center", background: remaining >= 0 ? "#e8f5e9" : "#fdecea", borderRadius: 10, padding: "10px 6px" }}>
+                <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>LEFT</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: remaining >= 0 ? "#2e7d32" : "#c62828" }}>{fmt(remaining)}</div>
+              </div>
+            </div>
+            <button style={{ ...S.btnSm("#0a9396"), width: "100%", padding: "8px" }} onClick={() => setTab("budget")}>
+              View Full Budget →
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            {[
+              { name: "Fiji", emoji: "🌺", desc: "Islands & beaches", bg: "linear-gradient(135deg,#e76f51,#c9503a)" },
+              { name: "New Zealand", emoji: "🌿", desc: "Adventure & nature", bg: "linear-gradient(135deg,#2a9d8f,#1a7a6e)" },
+            ].map((d) => (
+              <div key={d.name} style={{ background: d.bg, borderRadius: 14, padding: "16px 14px", color: "#fff" }}>
+                <div style={{ fontSize: 28 }}>{d.emoji}</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, marginTop: 6 }}>{d.name}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>{d.desc}</div>
               </div>
             ))}
           </div>
+
           <div style={S.card}>
-            <div style={{ fontFamily:"Nunito,sans-serif", fontSize:11, fontWeight:800, color:"#0a9396", letterSpacing:2, marginBottom:14 }}>TRIP OVERVIEW</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              {[{icon:"✈️",label:"Flights",val:flights.length},{icon:"🏨",label:"Hotels",val:hotels.length},{icon:"🗓️",label:"Activities",val:items.length},{icon:"🎒",label:"Still to pack",val:packing.filter(p=>!p.packed).length}].map((s,i)=>(
-                <div key={i} style={{ background:"#f0fafa", borderRadius:12, padding:"12px 14px", display:"flex", alignItems:"center", gap:10 }}>
-                  <div style={{ fontSize:24 }}>{s.icon}</div>
-                  <div>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, lineHeight:1 }}>{s.val}</div>
-                    <div style={{ fontFamily:"Nunito,sans-serif", fontSize:11, color:"#888", fontWeight:600 }}>{s.label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          {flights.length > 0 && (
-            <div style={S.card}>
-              <div style={{ fontFamily:"Nunito,sans-serif", fontSize:11, fontWeight:800, color:"#0a9396", letterSpacing:2, marginBottom:12 }}>NEXT FLIGHT</div>
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <div style={{ fontSize:32 }}>✈️</div>
-                <div>
-                  <div style={{ fontWeight:800, fontSize:16 }}>{flights[0].from_location} → {flights[0].to_location}</div>
-                  <div style={{ fontSize:12, color:"#888", marginTop:2 }}>{flights[0].airline} {flights[0].flight_number} · {flights[0].departure}</div>
-                </div>
+            <div style={S.label}>QUICK STATS</div>
+            {[
+              { l: "Flights booked", v: flights.length },
+              { l: "Hotels/stays", v: hotels.length },
+              { l: "Activities planned", v: items.length },
+              { l: "Flights cost", v: fmt(flightsTotal) },
+              { l: "Lodging cost", v: fmt(hotelsTotal) },
+              { l: "Booked activities", v: fmt(bookedActivities) },
+            ].map((s) => (
+              <div key={s.l} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid #f0f9f9" }}>
+                <span style={{ fontSize: 13, color: "#546e7a" }}>{s.l}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{s.v}</span>
               </div>
-            </div>
-          )}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {[{l:"ADD DAY",i:"📅",a:()=>{setTab("itinerary");setTimeout(()=>setShowModal("day"),200);}},{l:"ADD FLIGHT",i:"✈️",a:()=>{setTab("flights");setTimeout(()=>setShowModal("flight"),200);}},{l:"ADD HOTEL",i:"🏨",a:()=>{setTab("hotels");setTimeout(()=>setShowModal("hotel"),200);}},{l:"ADD TO PACK",i:"🎒",a:()=>{setTab("packing");setTimeout(()=>setShowModal("packing"),200);}}].map((b,i)=>(
-              <button key={i} onClick={b.a} style={{ padding:"14px 10px", borderRadius:12, border:"1px solid #c8e8e8", background:"#fff", cursor:"pointer", fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:800, color:"#005f73", textAlign:"center" }}>
-                <div style={{ fontSize:22, marginBottom:4 }}>{b.i}</div>{b.l}
-              </button>
             ))}
           </div>
         </div>
       )}
 
       {/* ── ITINERARY ── */}
-      {tab==="itinerary" && (
-        <div style={S.sec} className="sl">
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:"#005f73" }}>Itinerary</div>
-            <button onClick={()=>setShowModal("day")} style={{ ...S.sBtn(true), fontSize:13 }}>+ ADD DAY</button>
-          </div>
-          {days.length === 0 ? (
-            <div style={{ textAlign:"center", padding:"50px 20px" }}><div style={{ fontSize:48, marginBottom:12 }}>🗓️</div><div style={{ fontFamily:"Nunito,sans-serif", color:"#888" }}>No days planned yet. Add your first day!</div></div>
-          ) : days.map(day => (
-            <div key={day.id}>
-              <div className="hov" style={{ ...S.card, cursor:"pointer", borderLeft:"4px solid #0a9396" }} onClick={()=>setActiveDay(activeDay===day.id?null:day.id)}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, color:"#005f73" }}>{new Date(day.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}</div>
-                    <div style={{ fontFamily:"Nunito,sans-serif", fontSize:13, color:"#0a9396", fontWeight:700, marginTop:2 }}>{day.location}</div>
-                    {day.notes && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:12, color:"#888", marginTop:4 }}>{day.notes}</div>}
-                  </div>
-                  <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                    <span style={S.tag("#0a9396")}>{items.filter(i=>i.day_id===day.id).length} items</span>
-                    <button onClick={e=>{e.stopPropagation();deleteDay(day.id);}} style={{ background:"#fee", border:"none", color:"#e76f51", width:28, height:28, borderRadius:"50%", cursor:"pointer", fontSize:14 }}>×</button>
-                  </div>
-                </div>
-              </div>
-              {activeDay===day.id && (
-                <div style={{ marginTop:-8, marginBottom:12, background:"#f0fafa", borderRadius:"0 0 16px 16px", padding:"12px 16px" }}>
-                  <button onClick={()=>setShowModal("item")} style={{ ...S.btn("coral"), marginBottom:12, fontSize:13, padding:10 }}>+ ADD ACTIVITY / RESTAURANT</button>
-                  {activeDayItems.length===0 ? (
-                    <div style={{ textAlign:"center", padding:20, fontFamily:"Nunito,sans-serif", color:"#aaa", fontSize:13 }}>Nothing planned yet for this day.</div>
-                  ) : activeDayItems.map(item=>(
-                    <div key={item.id} style={{ background:"#fff", borderRadius:12, padding:"12px 14px", marginBottom:8, display:"flex", alignItems:"flex-start", gap:10, boxShadow:"0 1px 6px rgba(0,100,100,0.06)" }}>
-                      <input type="checkbox" checked={item.confirmed} onChange={()=>toggleItem(item)} style={{ marginTop:3, accentColor:"#0a9396", width:16, height:16, cursor:"pointer" }}/>
-                      <div style={{ flex:1 }}>
-                        <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-                          <span style={{ fontFamily:"Nunito,sans-serif", fontSize:14, fontWeight:700, textDecoration:item.confirmed?"line-through":"none", color:item.confirmed?"#aaa":"#1a3a3a" }}>{item.title}</span>
-                          <span style={S.tag(CAT_COLORS[item.category]||"#888")}>{item.category}</span>
-                        </div>
-                        {item.time && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:11, color:"#0a9396", fontWeight:700, marginTop:2 }}>🕐 {item.time}</div>}
-                        {item.details && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:12, color:"#888", marginTop:3 }}>{item.details}</div>}
+      {tab === "itinerary" && (
+        <div style={S.sec}>
+          <button style={S.btn()} onClick={() => { setForm({}); setShowModal("day"); }}>+ Add Day</button>
+          <div style={{ marginTop: 12 }}>
+            {days.map((day) => {
+              const dayItems = items.filter((i) => i.day_id === day.id);
+              const daySpend = dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
+              return (
+                <div key={day.id} style={{ ...S.card, marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>
+                        {new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                       </div>
-                      <button onClick={()=>deleteItem(item.id)} style={{ background:"none", border:"none", color:"#ccc", cursor:"pointer", fontSize:16 }}>×</button>
+                      <div style={{ fontSize: 12, color: "#78909c" }}>{day.location}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {daySpend > 0 && <span style={S.priceTag}>{fmt(daySpend)}</span>}
+                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("day", day)}>✏️</button>
+                      <button style={S.del} onClick={() => deleteRecord("itinerary_days", day.id)}>×</button>
+                    </div>
+                  </div>
+                  {day.notes && <div style={{ fontSize: 12, color: "#78909c", marginBottom: 10, fontStyle: "italic" }}>{day.notes}</div>}
+                  {dayItems.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        background: item.confirmed ? "#f0fdf4" : "#fafafa",
+                        border: `1px solid ${item.confirmed ? "#bbf7d0" : "#e8f0f2"}`,
+                        borderRadius: 10,
+                        padding: "10px 12px",
+                        marginBottom: 8,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 8,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.confirmed}
+                        onChange={() => toggleConfirmed(item.id, item.confirmed)}
+                        style={{ marginTop: 3, accentColor: "#0a9396" }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span style={S.chip(CAT_COLORS[item.category] || "#90a4ae")}>{item.category}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{item.title}</span>
+                          {(parseFloat(item.price) > 0) && (
+                            <span style={{ ...S.priceTag, fontSize: 11 }}>
+                              {item.is_booked ? "✅" : "~"} {fmt(item.price)}
+                            </span>
+                          )}
+                        </div>
+                        {item.time && <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>⏰ {item.time}</div>}
+                        {item.details && <div style={{ fontSize: 12, color: "#546e7a", marginTop: 3 }}>{item.details}</div>}
+                      </div>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button style={S.btnSm("#94a3b8")} onClick={() => { setActiveDay(day.id); openEdit("item", item); }}>✏️</button>
+                        <button style={S.del} onClick={() => deleteRecord("itinerary_items", item.id)}>×</button>
+                      </div>
                     </div>
                   ))}
+                  <button
+                    style={{ ...S.btnSm("#0a9396"), marginTop: 4, width: "100%", padding: "8px" }}
+                    onClick={() => { setActiveDay(day.id); setForm({ category: ACTIVITY_CATEGORIES[0] }); setShowModal("item"); }}
+                  >
+                    + Add Activity
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* ── FLIGHTS ── */}
-      {tab==="flights" && (
-        <div style={S.sec} className="sl">
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:"#005f73" }}>Flights</div>
-            <button onClick={()=>setShowModal("flight")} style={{ ...S.sBtn(true), fontSize:13 }}>+ ADD FLIGHT</button>
-          </div>
-          {flights.length===0 ? (
-            <div style={{ textAlign:"center", padding:"50px 20px" }}><div style={{ fontSize:48, marginBottom:12 }}>✈️</div><div style={{ fontFamily:"Nunito,sans-serif", color:"#888" }}>No flights added yet.</div></div>
-          ) : flights.map(f=>(
-            <div key={f.id} style={{ ...S.card, borderLeft:"4px solid #457b9d" }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:17, color:"#005f73" }}>{f.from_location}</div>
-                    <div style={{ fontSize:18 }}>✈️</div>
-                    <div style={{ fontFamily:"'Playfair Display',serif", fontSize:17, color:"#005f73" }}>{f.to_location}</div>
-                  </div>
-                  {f.airline && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:13, fontWeight:700, color:"#457b9d" }}>{f.airline} {f.flight_number}</div>}
-                  {f.departure && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:12, color:"#888", marginTop:4 }}>🛫 {f.departure}</div>}
-                  {f.arrival && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:12, color:"#888" }}>🛬 {f.arrival}</div>}
-                  {f.confirmation && <div style={{ marginTop:8 }}><span style={S.tag("#0a9396")}>Conf: {f.confirmation}</span></div>}
-                </div>
-                <button onClick={()=>deleteFlight(f.id)} style={{ background:"#fee", border:"none", color:"#e76f51", width:28, height:28, borderRadius:"50%", cursor:"pointer", fontSize:14 }}>×</button>
-              </div>
+      {tab === "flights" && (
+        <div style={S.sec}>
+          {flightsTotal > 0 && (
+            <div style={{ ...S.totalBanner("linear-gradient(135deg,#e3f2fd,#bbdefb)", "#1a2e35"), marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#1565c0", marginBottom: 4 }}>TOTAL FLIGHTS COST</div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#1565c0" }}>{fmt(flightsTotal)}</div>
             </div>
-          ))}
+          )}
+          <button style={S.btn()} onClick={() => { setForm({}); setShowModal("flight"); }}>+ Add Flight</button>
+          <div style={{ marginTop: 12 }}>
+            {flights.map((fl) => (
+              <div key={fl.id} style={S.card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>✈️ {fl.flight_number}</div>
+                    <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>
+                      {fl.from_location} → {fl.to_location}
+                    </div>
+                    {fl.airline && <div style={{ fontSize: 12, color: "#78909c" }}>{fl.airline}</div>}
+                    {fl.departure && <div style={{ fontSize: 12, color: "#78909c" }}>Dep: {fl.departure}</div>}
+                    {fl.arrival && <div style={{ fontSize: 12, color: "#78909c" }}>Arr: {fl.arrival}</div>}
+                    {fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                    {parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("flight", fl)}>✏️</button>
+                      <button style={S.del} onClick={() => deleteRecord("flights", fl.id)}>×</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* ── HOTELS ── */}
-      {tab==="hotels" && (
-        <div style={S.sec} className="sl">
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:"#005f73" }}>Hotels</div>
-            <button onClick={()=>setShowModal("hotel")} style={{ ...S.sBtn(true), fontSize:13 }}>+ ADD HOTEL</button>
-          </div>
-          {hotels.length===0 ? (
-            <div style={{ textAlign:"center", padding:"50px 20px" }}><div style={{ fontSize:48, marginBottom:12 }}>🏨</div><div style={{ fontFamily:"Nunito,sans-serif", color:"#888" }}>No hotels added yet.</div></div>
-          ) : hotels.map(h=>(
-            <div key={h.id} style={{ ...S.card, borderLeft:"4px solid #2a9d8f" }}>
-              <div style={{ display:"flex", justifyContent:"space-between" }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, color:"#005f73", marginBottom:4 }}>{h.name}</div>
-                  <div style={{ fontFamily:"Nunito,sans-serif", fontSize:13, color:"#2a9d8f", fontWeight:700 }}>📍 {h.location}</div>
-                  {h.check_in && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:12, color:"#888", marginTop:6 }}>Check-in: {h.check_in}</div>}
-                  {h.check_out && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:12, color:"#888" }}>Check-out: {h.check_out}</div>}
-                  {h.confirmation && <div style={{ marginTop:8 }}><span style={S.tag("#0a9396")}>Conf: {h.confirmation}</span></div>}
-                  {h.notes && <div style={{ fontFamily:"Nunito,sans-serif", fontSize:12, color:"#888", marginTop:6 }}>{h.notes}</div>}
-                </div>
-                <button onClick={()=>deleteHotel(h.id)} style={{ background:"#fee", border:"none", color:"#e76f51", width:28, height:28, borderRadius:"50%", cursor:"pointer", fontSize:14 }}>×</button>
-              </div>
+      {tab === "hotels" && (
+        <div style={S.sec}>
+          {hotelsTotal > 0 && (
+            <div style={{ ...S.totalBanner("linear-gradient(135deg,#f3e5f5,#e1bee7)", "#1a2e35"), marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#6a1b9a", marginBottom: 4 }}>TOTAL LODGING COST</div>
+              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#6a1b9a" }}>{fmt(hotelsTotal)}</div>
+              <div style={{ fontSize: 11, color: "#9c4dcc", marginTop: 4 }}>Calculated from nightly rate × nights</div>
             </div>
-          ))}
+          )}
+          <button style={S.btn()} onClick={() => { setForm({}); setShowModal("hotel"); }}>+ Add Hotel / Airbnb</button>
+          <div style={{ marginTop: 12 }}>
+            {hotels.map((h) => {
+              const nights = nightsBetween(h.check_in, h.check_out);
+              const total = nights * (parseFloat(h.price_per_night) || 0);
+              return (
+                <div key={h.id} style={S.card}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>🏨 {h.name}</div>
+                      {h.location && <div style={{ fontSize: 12, color: "#78909c" }}>📍 {h.location}</div>}
+                      <div style={{ fontSize: 12, color: "#546e7a", marginTop: 4 }}>
+                        {h.check_in} → {h.check_out}
+                        {nights > 0 && <span style={{ fontWeight: 700, color: "#0a9396" }}> ({nights} nights)</span>}
+                      </div>
+                      {parseFloat(h.price_per_night) > 0 && (
+                        <div style={{ fontSize: 12, color: "#78909c", marginTop: 2 }}>
+                          {fmt(h.price_per_night)}/night
+                          {total > 0 && <span style={{ fontWeight: 800, color: "#2e7d32" }}> = {fmt(total)} total</span>}
+                        </div>
+                      )}
+                      {h.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {h.confirmation}</div>}
+                      {h.notes && <div style={{ fontSize: 12, color: "#78909c", marginTop: 4, fontStyle: "italic" }}>{h.notes}</div>}
+                    </div>
+                    <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("hotel", h)}>✏️</button>
+                      <button style={S.del} onClick={() => deleteRecord("hotels", h.id)}>×</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* ── PACKING ── */}
-      {tab==="packing" && (
-        <div style={S.sec} className="sl">
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, color:"#005f73" }}>Packing List</div>
-            <button onClick={()=>setShowModal("packing")} style={{ ...S.sBtn(true), fontSize:13 }}>+ ADD ITEM</button>
-          </div>
-          <div style={{ ...S.card, marginBottom:16 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:700, color:"#0a9396", marginBottom:8 }}>
-              <span>PACKING PROGRESS</span><span>{packedCount} / {packing.length}</span>
+      {tab === "packing" && (
+        <div style={S.sec}>
+          <div style={{ ...S.card, background: "linear-gradient(135deg,#e0f7fa,#f0f9f9)", marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontWeight: 800, fontSize: 14, color: "#005f73" }}>Packing Progress</span>
+              <span style={{ fontWeight: 700, color: "#0a9396" }}>{packedCount}/{packing.length}</span>
             </div>
-            <div style={{ background:"#e0f0f0", borderRadius:20, height:10, overflow:"hidden" }}>
-              <div style={{ background:"linear-gradient(90deg,#0a9396,#2a9d8f)", height:"100%", width:`${packing.length?Math.round(packedCount/packing.length*100):0}%`, borderRadius:20, transition:"width 0.4s ease" }}/>
+            <div style={{ background: "#b2ebf2", borderRadius: 8, height: 8, overflow: "hidden" }}>
+              <div style={{ background: "#0a9396", height: "100%", width: `${packing.length ? (packedCount / packing.length) * 100 : 0}%`, borderRadius: 8, transition: "width 0.3s" }} />
             </div>
-            <div style={{ fontFamily:"Nunito,sans-serif", fontSize:11, color:"#888", marginTop:6, textAlign:"right" }}>{packing.length?Math.round(packedCount/packing.length*100):0}% packed</div>
           </div>
-          <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:10, marginBottom:14 }}>
-            {["All",...PACKING_CATEGORIES].map(cat=>(
-              <button key={cat} onClick={()=>setPackFilter(cat)} style={{ ...S.sBtn(packFilter===cat), flex:"0 0 auto", fontSize:11 }}>{cat}</button>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, scrollbarWidth: "none", marginBottom: 8 }}>
+            {["All", ...PACKING_CATEGORIES].map((cat) => (
+              <button
+                key={cat}
+                style={{ ...S.btnSm(packFilter === cat ? "#0a9396" : "#b2dfdb"), color: packFilter === cat ? "#fff" : "#005f73", flex: "0 0 auto" }}
+                onClick={() => setPackFilter(cat)}
+              >
+                {cat}
+              </button>
             ))}
           </div>
-          {filteredPacking.length===0 ? (
-            <div style={{ textAlign:"center", padding:"40px 20px" }}><div style={{ fontSize:40, marginBottom:8 }}>🎒</div><div style={{ fontFamily:"Nunito,sans-serif", color:"#888" }}>Nothing here yet.</div></div>
-          ) : PACKING_CATEGORIES.filter(cat=>packFilter==="All"||cat===packFilter).map(cat=>{
-            const catItems = filteredPacking.filter(p=>p.category===cat);
-            if (!catItems.length) return null;
+          <button style={S.btn()} onClick={() => { setForm({ category: "Misc" }); setShowModal("packing"); }}>+ Add Item</button>
+          <div style={{ marginTop: 12 }}>
+            {PACKING_CATEGORIES.filter((c) => packFilter === "All" || packFilter === c).map((cat) => {
+              const catItems = packing.filter((p) => p.category === cat);
+              if (!catItems.length) return null;
+              return (
+                <div key={cat} style={{ marginBottom: 16 }}>
+                  <div style={S.label}>{cat.toUpperCase()}</div>
+                  {catItems.map((p) => (
+                    <div
+                      key={p.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 14px",
+                        background: p.packed ? "#f0fdf4" : "#fff",
+                        borderRadius: 10,
+                        marginBottom: 6,
+                        border: `1px solid ${p.packed ? "#bbf7d0" : "#e0f2f1"}`,
+                      }}
+                    >
+                      <input type="checkbox" checked={p.packed} onChange={() => togglePacked(p.id, p.packed)} style={{ accentColor: "#0a9396" }} />
+                      <span style={{ flex: 1, fontSize: 14, color: p.packed ? "#78909c" : "#1a2e35", textDecoration: p.packed ? "line-through" : "none" }}>{p.item}</span>
+                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("packing", p)}>✏️</button>
+                      <button style={S.del} onClick={() => deleteRecord("packing_items", p.id)}>×</button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── BUDGET ── */}
+      {tab === "budget" && (
+        <div style={S.sec}>
+          {/* Trip Budget Input */}
+          <div style={S.card}>
+            <div style={S.label}>TOTAL TRIP BUDGET</div>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+              <input
+                type="number"
+                defaultValue={tripBudget || ""}
+                placeholder="Enter your total budget"
+                onBlur={(e) => saveTripBudget(e.target.value)}
+                style={{ ...S.priceInput, paddingLeft: 24 }}
+              />
+            </div>
+          </div>
+
+          {/* Grand Total Banner */}
+          <div style={S.totalBanner(remaining >= 0 ? "linear-gradient(135deg,#e8f5e9,#c8e6c9)" : "linear-gradient(135deg,#fdecea,#ffcdd2)", "#1a2e35")}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: remaining >= 0 ? "#2e7d32" : "#c62828", marginBottom: 4 }}>
+              {remaining >= 0 ? "✅ UNDER BUDGET" : "⚠️ OVER BUDGET"}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-around" }}>
+              <div>
+                <div style={{ fontSize: 11, color: "#546e7a", fontWeight: 700 }}>PROJECTED</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: "#e76f51" }}>{fmt(grandTotal)}</div>
+              </div>
+              <div style={{ width: 1, background: "rgba(0,0,0,0.1)" }} />
+              <div>
+                <div style={{ fontSize: 11, color: "#546e7a", fontWeight: 700 }}>{remaining >= 0 ? "REMAINING" : "OVER BY"}</div>
+                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: remaining >= 0 ? "#2e7d32" : "#c62828" }}>{fmt(Math.abs(remaining))}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Confirmed / Known Costs */}
+          <div style={{ ...S.label, marginTop: 4 }}>✅ CONFIRMED COSTS</div>
+          <div style={S.budgetCard("#1565c0")}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>✈️ Flights</span>
+              <span style={{ fontWeight: 800, color: "#1565c0", fontSize: 15 }}>{fmt(flightsTotal)}</span>
+            </div>
+            {flights.filter((f) => parseFloat(f.price) > 0).map((f) => (
+              <div key={f.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}>
+                <span>{f.flight_number} {f.from_location} → {f.to_location}</span>
+                <span style={{ fontWeight: 700 }}>{fmt(f.price)}</span>
+              </div>
+            ))}
+            {flights.filter((f) => parseFloat(f.price) > 0).length === 0 && (
+              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No prices added yet — edit flights to add costs</div>
+            )}
+          </div>
+
+          <div style={S.budgetCard("#6a1b9a")}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>🏨 Lodging</span>
+              <span style={{ fontWeight: 800, color: "#6a1b9a", fontSize: 15 }}>{fmt(hotelsTotal)}</span>
+            </div>
+            {hotels.map((h) => {
+              const nights = nightsBetween(h.check_in, h.check_out);
+              const total = nights * (parseFloat(h.price_per_night) || 0);
+              return (
+                <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}>
+                  <span>{h.name} {nights > 0 ? `(${nights}n)` : ""}</span>
+                  <span style={{ fontWeight: 700 }}>{total > 0 ? fmt(total) : "—"}</span>
+                </div>
+              );
+            })}
+            {hotels.length === 0 && <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No hotels added yet</div>}
+          </div>
+
+          <div style={S.budgetCard("#2e7d32")}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>🎟️ Booked Activities</span>
+              <span style={{ fontWeight: 800, color: "#2e7d32", fontSize: 15 }}>{fmt(bookedActivities)}</span>
+            </div>
+            {items.filter((i) => i.is_booked && parseFloat(i.price) > 0).map((i) => (
+              <div key={i.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}>
+                <span>{i.title}</span>
+                <span style={{ fontWeight: 700 }}>{fmt(i.price)}</span>
+              </div>
+            ))}
+            {items.filter((i) => i.is_booked && parseFloat(i.price) > 0).length === 0 && (
+              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>Mark itinerary items as "Booked" to track here</div>
+            )}
+          </div>
+
+          <div style={{ ...S.card, background: "#f8f9fa", border: "2px dashed #b0bec5" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 800, color: "#1a2e35" }}>Confirmed Subtotal</span>
+              <span style={{ fontWeight: 800, fontSize: 16, color: "#1a2e35" }}>{fmt(confirmedTotal)}</span>
+            </div>
+          </div>
+
+          {/* Estimates */}
+          <div style={{ ...S.label, marginTop: 8 }}>🟡 ESTIMATED SPENDING</div>
+          <button style={{ ...S.btn("#f4a261"), marginBottom: 10 }} onClick={() => { setForm({ category: ESTIMATE_CATEGORIES[0], days: 1, daily_amount: 0 }); setShowModal("estimate"); }}>
+            + Add Estimate
+          </button>
+
+          {estimates.map((est) => {
+            const lineTotal = (parseFloat(est.daily_amount) || 0) * (parseInt(est.days) || 1);
             return (
-              <div key={cat} style={{ marginBottom:16 }}>
-                <div style={{ fontFamily:"Nunito,sans-serif", fontSize:11, fontWeight:800, color:"#0a9396", letterSpacing:2, marginBottom:8 }}>{cat.toUpperCase()}</div>
-                {catItems.map(item=>(
-                  <div key={item.id} style={{ background:"#fff", borderRadius:12, padding:"11px 14px", marginBottom:6, display:"flex", alignItems:"center", gap:10, boxShadow:"0 1px 6px rgba(0,100,100,0.05)" }}>
-                    <input type="checkbox" checked={item.packed} onChange={()=>togglePacked(item)} style={{ accentColor:"#0a9396", width:18, height:18, cursor:"pointer", flexShrink:0 }}/>
-                    <span style={{ fontFamily:"Nunito,sans-serif", fontSize:14, fontWeight:600, flex:1, textDecoration:item.packed?"line-through":"none", color:item.packed?"#aaa":"#1a3a3a" }}>{item.item}</span>
-                    <button onClick={()=>deletePackingItem(item.id)} style={{ background:"none", border:"none", color:"#ccc", cursor:"pointer", fontSize:16 }}>×</button>
+              <div key={est.id} style={S.budgetCard("#f4a261")}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>{est.label}</div>
+                    <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>
+                      {fmt(est.daily_amount)}/day × {est.days} day{est.days !== 1 ? "s" : ""} = {fmt(lineTotal)}
+                    </div>
+                    <span style={S.chip("#f4a261")}>{est.category}</span>
                   </div>
-                ))}
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("estimate", est)}>✏️</button>
+                    <button style={S.del} onClick={() => deleteRecord("budget_estimates", est.id)}>×</button>
+                  </div>
+                </div>
               </div>
             );
           })}
+
+          {estimates.length === 0 && (
+            <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic" }}>
+              Add daily estimates for things like food, gas, activities you haven't booked yet
+            </div>
+          )}
+
+          <div style={{ ...S.card, background: "#fff8e1", border: "2px dashed #ffb300", marginTop: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 800, color: "#1a2e35" }}>Estimates Subtotal</span>
+              <span style={{ fontWeight: 800, fontSize: 16, color: "#e65100" }}>{fmt(estimatesTotal)}</span>
+            </div>
+          </div>
+
+          {/* Grand Total Footer */}
+          <div style={{ ...S.card, background: "linear-gradient(135deg,#005f73,#0a9396)", marginTop: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 800, color: "#fff", fontSize: 16 }}>💰 Grand Total</span>
+              <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, color: "#fff" }}>{fmt(grandTotal)}</span>
+            </div>
+            {tripBudget > 0 && (
+              <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(255,255,255,0.15)", borderRadius: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", color: remaining >= 0 ? "#a7f3d0" : "#fca5a5" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{remaining >= 0 ? "Still have" : "Over budget by"}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800 }}>{fmt(Math.abs(remaining))}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ height: 16 }} />
         </div>
       )}
 
       {/* ── MODALS ── */}
-      {showModal==="day" && (
-        <Modal title="Add Day" onSave={addDay} onClose={closeModal} saving={saving}>
-          <div style={S.lbl}>DATE</div>
-          <input type="date" style={S.inp} value={dayForm.date} onChange={e=>setDayForm(p=>({...p,date:e.target.value}))}/>
-          <div style={S.lbl}>LOCATION</div>
-          <input style={S.inp} placeholder="e.g. Nadi, Fiji" value={dayForm.location} onChange={e=>setDayForm(p=>({...p,location:e.target.value}))}/>
-          <div style={S.lbl}>NOTES (optional)</div>
-          <textarea style={{...S.inp,height:80}} placeholder="Any notes for this day..." value={dayForm.notes} onChange={e=>setDayForm(p=>({...p,notes:e.target.value}))}/>
+
+      {/* Day Modal */}
+      {showModal === "day" && (
+        <Modal onClose={closeModal}>
+          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT DAY" : "ADD DAY"}</div>
+          <input style={S.input} type="date" value={form.date || ""} onChange={f("date")} />
+          <input style={S.input} placeholder="Location (e.g. Nadi, Fiji)" value={form.location || ""} onChange={f("location")} />
+          <input style={S.input} placeholder="Notes (optional)" value={form.notes || ""} onChange={f("notes")} />
+          <button style={S.btn()} onClick={saveDay}>{editItem ? "Save Changes" : "Add Day"}</button>
+          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
         </Modal>
       )}
 
-      {showModal==="item" && (
-        <Modal title="Add Activity" onSave={addItem} onClose={closeModal} saving={saving}>
-          <div style={S.lbl}>CATEGORY</div>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
-            {ACTIVITY_CATEGORIES.map(cat=>(
-              <button key={cat} onClick={()=>setItemForm(p=>({...p,category:cat}))} style={{ ...S.sBtn(itemForm.category===cat, CAT_COLORS[cat]||"#0a9396"), fontSize:12 }}>{cat}</button>
-            ))}
+      {/* Item Modal */}
+      {showModal === "item" && (
+        <Modal onClose={closeModal}>
+          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ACTIVITY" : "ADD ACTIVITY"}</div>
+          <select style={S.select} value={form.category || ACTIVITY_CATEGORIES[0]} onChange={f("category")}>
+            {ACTIVITY_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+          <input style={S.input} placeholder="Title *" value={form.title || ""} onChange={f("title")} />
+          <input style={S.input} placeholder="Details / notes" value={form.details || ""} onChange={f("details")} />
+          <input style={S.input} type="time" value={form.time || ""} onChange={f("time")} />
+          <div style={S.label}>PRICE</div>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={form.price || ""}
+              onChange={f("price")}
+              style={{ ...S.priceInput, paddingLeft: 24 }}
+            />
           </div>
-          <div style={S.lbl}>NAME</div>
-          <input style={S.inp} placeholder="e.g. Snorkeling at coral reef" value={itemForm.title} onChange={e=>setItemForm(p=>({...p,title:e.target.value}))}/>
-          <div style={S.lbl}>TIME (optional)</div>
-          <input style={S.inp} placeholder="e.g. 9:00 AM" value={itemForm.time} onChange={e=>setItemForm(p=>({...p,time:e.target.value}))}/>
-          <div style={S.lbl}>DETAILS (optional)</div>
-          <textarea style={{...S.inp,height:80}} placeholder="Address, notes, booking info..." value={itemForm.details} onChange={e=>setItemForm(p=>({...p,details:e.target.value}))}/>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+            <input
+              type="checkbox"
+              id="is_booked"
+              checked={form.is_booked === true || form.is_booked === "true"}
+              onChange={(e) => setForm((p) => ({ ...p, is_booked: e.target.checked }))}
+              style={{ accentColor: "#0a9396" }}
+            />
+            <label htmlFor="is_booked" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Booked / confirmed price (not an estimate)</label>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
+            <input
+              type="checkbox"
+              id="confirmed"
+              checked={form.confirmed === true || form.confirmed === "true"}
+              onChange={(e) => setForm((p) => ({ ...p, confirmed: e.target.checked }))}
+              style={{ accentColor: "#0a9396" }}
+            />
+            <label htmlFor="confirmed" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Mark as done / completed</label>
+          </div>
+          <button style={S.btn()} onClick={saveItem}>{editItem ? "Save Changes" : "Add Activity"}</button>
+          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
         </Modal>
       )}
 
-      {showModal==="flight" && (
-        <Modal title="Add Flight" onSave={addFlight} onClose={closeModal} saving={saving}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <div><div style={S.lbl}>FROM</div><input style={S.inp} placeholder="Los Angeles" value={flightForm.from_location} onChange={e=>setFlightForm(p=>({...p,from_location:e.target.value}))}/></div>
-            <div><div style={S.lbl}>TO</div><input style={S.inp} placeholder="Nadi, Fiji" value={flightForm.to_location} onChange={e=>setFlightForm(p=>({...p,to_location:e.target.value}))}/></div>
+      {/* Flight Modal */}
+      {showModal === "flight" && (
+        <Modal onClose={closeModal}>
+          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT FLIGHT" : "ADD FLIGHT"}</div>
+          <input style={S.input} placeholder="Flight number * (e.g. AA1234)" value={form.flight_number || ""} onChange={f("flight_number")} />
+          <input style={S.input} placeholder="Airline" value={form.airline || ""} onChange={f("airline")} />
+          <input style={S.input} placeholder="From (e.g. LAX)" value={form.from_location || ""} onChange={f("from_location")} />
+          <input style={S.input} placeholder="To (e.g. NAN - Nadi)" value={form.to_location || ""} onChange={f("to_location")} />
+          <input style={S.input} placeholder="Departure (date & time)" value={form.departure || ""} onChange={f("departure")} />
+          <input style={S.input} placeholder="Arrival (date & time)" value={form.arrival || ""} onChange={f("arrival")} />
+          <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
+          <div style={S.label}>TICKET PRICE (total for all travelers)</div>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={form.price || ""}
+              onChange={f("price")}
+              style={{ ...S.priceInput, paddingLeft: 24 }}
+            />
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <div><div style={S.lbl}>AIRLINE</div><input style={S.inp} placeholder="Fiji Airways" value={flightForm.airline} onChange={e=>setFlightForm(p=>({...p,airline:e.target.value}))}/></div>
-            <div><div style={S.lbl}>FLIGHT #</div><input style={S.inp} placeholder="FJ800" value={flightForm.flight_number} onChange={e=>setFlightForm(p=>({...p,flight_number:e.target.value}))}/></div>
-          </div>
-          <div style={S.lbl}>DEPARTURE</div>
-          <input style={S.inp} placeholder="May 18, 11:30 PM" value={flightForm.departure} onChange={e=>setFlightForm(p=>({...p,departure:e.target.value}))}/>
-          <div style={S.lbl}>ARRIVAL</div>
-          <input style={S.inp} placeholder="May 20, 6:45 AM" value={flightForm.arrival} onChange={e=>setFlightForm(p=>({...p,arrival:e.target.value}))}/>
-          <div style={S.lbl}>CONFIRMATION #</div>
-          <input style={S.inp} placeholder="ABC123" value={flightForm.confirmation} onChange={e=>setFlightForm(p=>({...p,confirmation:e.target.value}))}/>
+          <button style={S.btn()} onClick={saveFlight}>{editItem ? "Save Changes" : "Add Flight"}</button>
+          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
         </Modal>
       )}
 
-      {showModal==="hotel" && (
-        <Modal title="Add Hotel" onSave={addHotel} onClose={closeModal} saving={saving}>
-          <div style={S.lbl}>HOTEL NAME</div>
-          <input style={S.inp} placeholder="e.g. Sheraton Fiji Resort" value={hotelForm.name} onChange={e=>setHotelForm(p=>({...p,name:e.target.value}))}/>
-          <div style={S.lbl}>LOCATION</div>
-          <input style={S.inp} placeholder="e.g. Denarau Island, Fiji" value={hotelForm.location} onChange={e=>setHotelForm(p=>({...p,location:e.target.value}))}/>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-            <div><div style={S.lbl}>CHECK-IN</div><input style={S.inp} placeholder="May 20" value={hotelForm.check_in} onChange={e=>setHotelForm(p=>({...p,check_in:e.target.value}))}/></div>
-            <div><div style={S.lbl}>CHECK-OUT</div><input style={S.inp} placeholder="May 25" value={hotelForm.check_out} onChange={e=>setHotelForm(p=>({...p,check_out:e.target.value}))}/></div>
+      {/* Hotel Modal */}
+      {showModal === "hotel" && (
+        <Modal onClose={closeModal}>
+          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT HOTEL" : "ADD HOTEL / AIRBNB"}</div>
+          <input style={S.input} placeholder="Name * (e.g. Airbnb Queenstown)" value={form.name || ""} onChange={f("name")} />
+          <input style={S.input} placeholder="Location" value={form.location || ""} onChange={f("location")} />
+          <div style={S.label}>CHECK-IN</div>
+          <input style={S.input} type="date" value={form.check_in || ""} onChange={f("check_in")} />
+          <div style={S.label}>CHECK-OUT</div>
+          <input style={S.input} type="date" value={form.check_out || ""} onChange={f("check_out")} />
+          {form.check_in && form.check_out && (
+            <div style={{ fontSize: 12, color: "#0a9396", fontWeight: 700, marginBottom: 8 }}>
+              {nightsBetween(form.check_in, form.check_out)} nights
+            </div>
+          )}
+          <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
+          <input style={S.input} placeholder="Notes" value={form.notes || ""} onChange={f("notes")} />
+          <div style={S.label}>PRICE PER NIGHT</div>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0"
+              value={form.price_per_night || ""}
+              onChange={f("price_per_night")}
+              style={{ ...S.priceInput, paddingLeft: 24 }}
+            />
           </div>
-          <div style={S.lbl}>CONFIRMATION #</div>
-          <input style={S.inp} placeholder="ABC123" value={hotelForm.confirmation} onChange={e=>setHotelForm(p=>({...p,confirmation:e.target.value}))}/>
-          <div style={S.lbl}>NOTES</div>
-          <textarea style={{...S.inp,height:70}} placeholder="Pool view, breakfast included, etc." value={hotelForm.notes} onChange={e=>setHotelForm(p=>({...p,notes:e.target.value}))}/>
+          {form.price_per_night && form.check_in && form.check_out && (
+            <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>
+              Total: {fmt(nightsBetween(form.check_in, form.check_out) * parseFloat(form.price_per_night))}
+            </div>
+          )}
+          <button style={S.btn()} onClick={saveHotel}>{editItem ? "Save Changes" : "Add Hotel"}</button>
+          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
         </Modal>
       )}
 
-      {showModal==="packing" && (
-        <Modal title="Add Packing Items" onSave={addPackingItem} onClose={closeModal} saving={saving}>
-          <div style={S.lbl}>CATEGORY</div>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
-            {PACKING_CATEGORIES.map(cat=>(
-              <button key={cat} onClick={()=>setPackForm(p=>({...p,category:cat}))} style={{ ...S.sBtn(packForm.category===cat), fontSize:12 }}>{cat}</button>
-            ))}
+      {/* Packing Modal */}
+      {showModal === "packing" && (
+        <Modal onClose={closeModal}>
+          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ITEM" : "ADD PACKING ITEM"}</div>
+          <input style={S.input} placeholder="Item name *" value={form.item || ""} onChange={f("item")} />
+          <select style={S.select} value={form.category || "Misc"} onChange={f("category")}>
+            {PACKING_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+          <button style={S.btn()} onClick={savePacking}>{editItem ? "Save Changes" : "Add Item"}</button>
+          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
+        </Modal>
+      )}
+
+      {/* Estimate Modal */}
+      {showModal === "estimate" && (
+        <Modal onClose={closeModal}>
+          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ESTIMATE" : "ADD SPENDING ESTIMATE"}</div>
+          <input style={S.input} placeholder="Label * (e.g. Eating out in Fiji)" value={form.label || ""} onChange={f("label")} />
+          <select style={S.select} value={form.category || ESTIMATE_CATEGORIES[0]} onChange={f("category")}>
+            {ESTIMATE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+          <div style={S.label}>ESTIMATED AMOUNT PER DAY</div>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              placeholder="0"
+              value={form.daily_amount || ""}
+              onChange={f("daily_amount")}
+              style={{ ...S.priceInput, paddingLeft: 24 }}
+            />
           </div>
-          <div style={S.lbl}>COMMON ITEMS — TAP TO ADD</div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:16, maxHeight:200, overflowY:"auto", padding:"4px 0" }}>
-            {(PACKING_SUGGESTIONS[packForm.category]||[])
-              .filter(s => !packing.some(p => p.item.toLowerCase()===s.toLowerCase() && p.category===packForm.category))
-              .map(suggestion => (
-                <button key={suggestion} onClick={async()=>{
-                  const{error}=await supabase.from("packing_items").insert({category:packForm.category,item:suggestion,packed:false});
-                  if(!error) loadAll();
-                }} style={{ padding:"6px 12px", borderRadius:20, border:"1px solid #c8e8e8", background:"#f0fafa", cursor:"pointer", fontFamily:"Nunito,sans-serif", fontSize:12, fontWeight:600, color:"#005f73" }}>
-                  + {suggestion}
-                </button>
-              ))
-            }
-            {(PACKING_SUGGESTIONS[packForm.category]||[]).filter(s=>!packing.some(p=>p.item.toLowerCase()===s.toLowerCase()&&p.category===packForm.category)).length===0&&(
-              <div style={{fontFamily:"Nunito,sans-serif",fontSize:12,color:"#aaa",padding:"8px 0"}}>All common items already added!</div>
-            )}
-          </div>
-          <div style={S.lbl}>ADD CUSTOM ITEM</div>
-          <input style={S.inp} placeholder="Type anything not listed above..." value={packForm.item} onChange={e=>setPackForm(p=>({...p,item:e.target.value}))}/>
+          <div style={S.label}>NUMBER OF DAYS</div>
+          <input
+            type="number"
+            min="1"
+            placeholder="1"
+            value={form.days || ""}
+            onChange={f("days")}
+            style={S.input}
+          />
+          {form.daily_amount && form.days && (
+            <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>
+              Total for this line: {fmt(parseFloat(form.daily_amount) * parseInt(form.days))}
+            </div>
+          )}
+          <button style={S.btn("#f4a261")} onClick={saveEstimate}>{editItem ? "Save Changes" : "Add Estimate"}</button>
+          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
         </Modal>
       )}
     </div>
