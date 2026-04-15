@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
+import Login from "./Login";
 
 const TRIP_START = "2026-05-18";
 
@@ -241,6 +242,20 @@ function Modal({ onClose, children }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function TripPlanner() {
+  const [session, setSession] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthChecked(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [tab, setTab] = useState("home");
   const [days, setDays] = useState([]);
   const [items, setItems] = useState([]);
@@ -426,6 +441,19 @@ export default function TripPlanner() {
   };
 
   const packedCount = packing.filter((p) => p.packed).length;
+
+  if (!authChecked) {
+    return (
+      <div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48 }}>🌴</div>
+          <div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) return <Login />;
 
   if (loading) {
     return (
