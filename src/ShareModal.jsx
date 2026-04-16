@@ -2,123 +2,31 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
 const S = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.45)",
-    zIndex: 200,
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  sheet: {
-    background: "#fff",
-    borderRadius: "20px 20px 0 0",
-    padding: "24px 20px 40px",
-    width: "100%",
-    maxWidth: 480,
-    maxHeight: "90vh",
-    overflowY: "auto",
-    fontFamily: "'Nunito', sans-serif",
-  },
-  title: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 22,
-    color: "#005f73",
-    marginBottom: 4,
-  },
-  sub: { fontSize: 13, color: "#78909c", marginBottom: 20 },
+  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" },
+  sheet: { background: "#fff", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", fontFamily: "'Nunito', sans-serif" },
+  title: { fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#005f73", marginBottom: 4 },
+  sub: { fontSize: 13, color: "#78909c", marginBottom: 16 },
   label: { fontSize: 10, fontWeight: 800, color: "#0a9396", letterSpacing: 1.5, marginBottom: 8, marginTop: 14 },
-  input: {
-    width: "100%",
-    padding: "11px 14px",
-    border: "1.5px solid #e0f2f1",
-    borderRadius: 10,
-    fontSize: 14,
-    fontFamily: "'Nunito', sans-serif",
-    background: "#f8fdfd",
-    color: "#1a2e35",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  btn: (color = "#0a9396") => ({
-    background: color,
-    color: "#fff",
-    border: "none",
-    borderRadius: 10,
-    padding: "12px 20px",
-    fontSize: 14,
-    fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
-    cursor: "pointer",
-    width: "100%",
-    marginTop: 12,
-  }),
-  btnSecondary: {
-    background: "transparent",
-    color: "#78909c",
-    border: "none",
-    padding: "10px",
-    fontSize: 13,
-    fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
-    cursor: "pointer",
-    width: "100%",
-    marginTop: 4,
-  },
+  input: { width: "100%", padding: "11px 14px", border: "1.5px solid #e0f2f1", borderRadius: 10, fontSize: 14, fontFamily: "'Nunito', sans-serif", background: "#f8fdfd", color: "#1a2e35", outline: "none", boxSizing: "border-box" },
+  select: { width: "100%", padding: "11px 14px", border: "1.5px solid #e0f2f1", borderRadius: 10, fontSize: 14, fontFamily: "'Nunito', sans-serif", background: "#f8fdfd", color: "#1a2e35", outline: "none", boxSizing: "border-box", marginTop: 6 },
+  roleHint: { fontSize: 11, color: "#78909c", fontStyle: "italic", marginTop: 4, marginBottom: 4, lineHeight: 1.4 },
+  btn: (color = "#0a9396") => ({ background: color, color: "#fff", border: "none", borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 700, fontFamily: "'Nunito', sans-serif", cursor: "pointer", width: "100%", marginTop: 12 }),
+  btnSecondary: { background: "transparent", color: "#78909c", border: "none", padding: "10px", fontSize: 13, fontWeight: 700, fontFamily: "'Nunito', sans-serif", cursor: "pointer", width: "100%", marginTop: 4 },
   collabList: { marginTop: 6 },
-  collabRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "10px 12px",
-    background: "#f8fdfd",
-    borderRadius: 10,
-    marginBottom: 6,
-    border: "1px solid #e0f2f1",
-  },
-  collabEmail: { fontSize: 13, color: "#1a2e35", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  collabStatus: (accepted) => ({
-    fontSize: 10,
-    fontWeight: 700,
-    padding: "3px 8px",
-    borderRadius: 8,
-    background: accepted ? "#e8f5e9" : "#fff8e1",
-    color: accepted ? "#2e7d32" : "#f57c00",
-    marginRight: 8,
-    whiteSpace: "nowrap",
-  }),
-  removeBtn: {
-    background: "none",
-    border: "none",
-    color: "#c62828",
-    fontSize: 18,
-    cursor: "pointer",
-    padding: "2px 6px",
-  },
+  collabRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#f8fdfd", borderRadius: 10, marginBottom: 6, border: "1px solid #e0f2f1", gap: 6 },
+  collabInfo: { flex: 1, minWidth: 0 },
+  collabEmail: { fontSize: 13, color: "#1a2e35", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  collabRole: { fontSize: 10, fontWeight: 700, color: "#78909c", marginTop: 2 },
+  statusBadge: (accepted) => ({ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 8, background: accepted ? "#e8f5e9" : "#fff8e1", color: accepted ? "#2e7d32" : "#f57c00", whiteSpace: "nowrap" }),
+  removeBtn: { background: "none", border: "none", color: "#c62828", fontSize: 18, cursor: "pointer", padding: "2px 6px" },
   empty: { fontSize: 12, color: "#90a4ae", fontStyle: "italic", padding: "12px 0" },
-  msg: (isError) => ({
-    fontSize: 12,
-    color: isError ? "#c62828" : "#2e7d32",
-    fontWeight: 700,
-    marginTop: 10,
-    padding: "8px 12px",
-    background: isError ? "#fdecea" : "#e8f5e9",
-    borderRadius: 8,
-  }),
-  info: {
-    background: "#e0f7fa",
-    borderRadius: 10,
-    padding: "10px 14px",
-    fontSize: 12,
-    color: "#005f73",
-    marginBottom: 4,
-    lineHeight: 1.5,
-  },
+  msg: (isError) => ({ fontSize: 12, color: isError ? "#c62828" : "#2e7d32", fontWeight: 700, marginTop: 10, padding: "8px 12px", background: isError ? "#fdecea" : "#e8f5e9", borderRadius: 8 }),
+  info: { background: "#e0f7fa", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#005f73", marginBottom: 4, lineHeight: 1.5 },
 };
 
 export default function ShareModal({ trip, onClose }) {
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState("editor");
   const [collaborators, setCollaborators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
@@ -150,14 +58,9 @@ export default function ShareModal({ trip, onClose }) {
 
     setInviting(true);
 
-    // Step 1: Add to trip_collaborators
     const { error: collabError } = await supabase
       .from("trip_collaborators")
-      .insert({
-        trip_id: trip.id,
-        user_email: cleanEmail,
-        role: "editor",
-      });
+      .insert({ trip_id: trip.id, user_email: cleanEmail, role });
 
     if (collabError) {
       setMsg({ text: "Could not add collaborator: " + collabError.message, isError: true });
@@ -165,41 +68,39 @@ export default function ShareModal({ trip, onClose }) {
       return;
     }
 
-    // Step 2: Send magic link
     const { error: emailError } = await supabase.auth.signInWithOtp({
       email: cleanEmail,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
+      options: { emailRedirectTo: window.location.origin },
     });
 
     if (emailError) {
-      setMsg({
-        text: `Added to trip, but email failed: ${emailError.message}. They can still sign in with this email to see the trip.`,
-        isError: true,
-      });
+      setMsg({ text: `Added to trip, but email failed: ${emailError.message}. They can still sign in with this email to see the trip.`, isError: true });
     } else {
       setMsg({ text: `✓ Invite sent to ${cleanEmail}!`, isError: false });
     }
 
     setEmail("");
+    setRole("editor");
     setInviting(false);
     loadCollaborators();
   };
 
   const handleRemove = async (id, removeEmail) => {
     if (!window.confirm(`Remove ${removeEmail} from this trip?`)) return;
-    const { error } = await supabase
-      .from("trip_collaborators")
-      .delete()
-      .eq("id", id);
-    if (error) {
-      setMsg({ text: "Could not remove: " + error.message, isError: true });
-    } else {
-      setMsg({ text: "✓ Collaborator removed", isError: false });
-    }
+    const { error } = await supabase.from("trip_collaborators").delete().eq("id", id);
+    if (error) setMsg({ text: "Could not remove: " + error.message, isError: true });
+    else setMsg({ text: "✓ Collaborator removed", isError: false });
     loadCollaborators();
   };
+
+  const handleChangeRole = async (id, newRole) => {
+    const { error } = await supabase.from("trip_collaborators").update({ role: newRole }).eq("id", id);
+    if (error) setMsg({ text: "Could not update role: " + error.message, isError: true });
+    else setMsg({ text: "✓ Role updated", isError: false });
+    loadCollaborators();
+  };
+
+  const roleLabel = (r) => r === "co-owner" ? "Co-owner (full access)" : "Editor (no prices/budget/packing)";
 
   return (
     <div style={S.overlay} onClick={onClose}>
@@ -208,7 +109,8 @@ export default function ShareModal({ trip, onClose }) {
         <div style={S.sub}>{trip.name}</div>
 
         <div style={S.info}>
-          Collaborators can see and edit the itinerary, hotels, and flights (no prices or confirmation numbers). They can't see your packing list or budget.
+          <strong>Editor:</strong> can edit itinerary, hotels, flights. Can't see prices, confirmations, packing, or budget.<br/>
+          <strong>Co-owner:</strong> full access to everything. Can invite others.
         </div>
 
         <div style={S.label}>INVITE BY EMAIL</div>
@@ -220,6 +122,10 @@ export default function ShareModal({ trip, onClose }) {
           onChange={(e) => setEmail(e.target.value)}
           disabled={inviting}
         />
+        <select style={S.select} value={role} onChange={(e) => setRole(e.target.value)} disabled={inviting}>
+          <option value="editor">Editor (no prices/budget/packing)</option>
+          <option value="co-owner">Co-owner (full access)</option>
+        </select>
         <button style={S.btn()} onClick={handleInvite} disabled={inviting}>
           {inviting ? "Sending…" : "Send Invite"}
         </button>
@@ -235,8 +141,19 @@ export default function ShareModal({ trip, onClose }) {
           <div style={S.collabList}>
             {collaborators.map((c) => (
               <div key={c.id} style={S.collabRow}>
-                <span style={S.collabEmail}>{c.user_email}</span>
-                <span style={S.collabStatus(!!c.accepted_at)}>
+                <div style={S.collabInfo}>
+                  <div style={S.collabEmail}>{c.user_email}</div>
+                  <div style={S.collabRole}>{roleLabel(c.role)}</div>
+                </div>
+                <select
+                  value={c.role}
+                  onChange={(e) => handleChangeRole(c.id, e.target.value)}
+                  style={{ padding: "4px 6px", fontSize: 11, borderRadius: 6, border: "1px solid #e0f2f1", background: "#fff", fontFamily: "'Nunito', sans-serif" }}
+                >
+                  <option value="editor">Editor</option>
+                  <option value="co-owner">Co-owner</option>
+                </select>
+                <span style={S.statusBadge(!!c.accepted_at)}>
                   {c.accepted_at ? "JOINED" : "INVITED"}
                 </span>
                 <button style={S.removeBtn} onClick={() => handleRemove(c.id, c.user_email)}>×</button>
