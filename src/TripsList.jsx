@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 import NewTripModal from "./NewTripModal";
+import ShareModal from "./ShareModal";
 
 const daysUntil = (startDate) => {
   if (!startDate) return 0;
@@ -76,7 +77,6 @@ const S = {
     marginBottom: 12,
     boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
     cursor: "pointer",
-    transition: "transform 0.1s",
     position: "relative",
   },
   tripName: {
@@ -84,6 +84,7 @@ const S = {
     fontSize: 18,
     color: "#005f73",
     marginBottom: 4,
+    paddingRight: 80,
   },
   tripDates: { fontSize: 12, color: "#78909c", fontWeight: 600, marginBottom: 10 },
   badge: (color, bg) => ({
@@ -94,11 +95,22 @@ const S = {
     fontWeight: 700,
     background: bg,
     color: color,
+    marginRight: 6,
   }),
+  sharedBadge: {
+    display: "inline-block",
+    padding: "4px 10px",
+    borderRadius: 12,
+    fontSize: 11,
+    fontWeight: 700,
+    background: "#e3f2fd",
+    color: "#1565c0",
+    marginRight: 6,
+  },
   countdown: {
     position: "absolute",
     top: 16,
-    right: 18,
+    right: 54,
     textAlign: "right",
   },
   countdownNum: {
@@ -114,6 +126,18 @@ const S = {
     letterSpacing: 1,
     marginTop: 2,
   },
+  shareBtn: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    background: "#e0f7fa",
+    border: "none",
+    borderRadius: 8,
+    padding: "6px 10px",
+    fontSize: 14,
+    cursor: "pointer",
+    color: "#0a9396",
+  },
   empty: {
     textAlign: "center",
     padding: "40px 20px",
@@ -128,19 +152,60 @@ export default function TripsList({ session, onSelectTrip }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewTrip, setShowNewTrip] = useState(false);
+  const [shareTrip, setShareTrip] = useState(null);
+  const [collabTripIds, setCollabTripIds] = useState(new Set());
 
   const loadTrips = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    // Load trips user owns
+    const { data: ownedTrips, error: ownedError } = await supabase
       .from("trips")
       .select("*, destination:destinations(name, country, timezone, currency_code)")
       .order("start_date", { ascending: true });
-    if (error) console.error("Load trips error:", error);
-    setTrips(data || []);
+    if (ownedError) console.error("Load owned trips error:", ownedError);
+
+    // Load trips user is collaborator on
+    const { data: collabRows, error: collabError } = await supabase
+      .from("trip_collaborators")
+      .select("trip_id")
+      .or(`user_id.eq.${session.user.id},user_email.eq.${session.user.email}`);
+    if (collabError) console.error("Load collab error:", collabError);
+
+    const collabIds = (collabRows || []).map((r) => r.trip_id);
+    const ownedIds = new Set((ownedTrips || []).map((t) => t.id));
+    const sharedOnlyIds = collabIds.filter((id) => !ownedIds.has(id));
+
+    let sharedTrips = [];
+    if (sharedOnlyIds.length > 0) {
+      const { data, error } = await supabase
+        .from("trips")
+        .select("*, destination:destinations(name, country, timezone, currency_code)")
+        .in("id", sharedOnlyIds)
+        .order("start_date", { ascending: true });
+      if (error) console.error("Load shared trips error:", error);
+      sharedTrips = data || [];
+    }
+
+    // Mark collab-only trips so we can show "SHARED WITH YOU" badge
+    const collabSet = new Set(sharedTrips.map((t) => t.id));
+    setCollabTripIds(collabSet);
+
+    // Mark collab status on accepted_at in trip_collaborators for the current user
+    // (fire and forget - update accepted_at for any row matching this user that isn't yet accepted)
+    if (collabRows && collabRows.length > 0) {
+      await supabase
+        .from("trip_collaborators")
+        .update({ user_id: session.user.id, accepted_at: new Date().toISOString() })
+        .or(`user_id.eq.${session.user.id},user_email.eq.${session.user.email}`)
+        .is("accepted_at", null);
+    }
+
+    setTrips([...(ownedTrips || []), ...sharedTrips]);
     setLoading(false);
   };
 
-  useEffect(() => { loadTrips(); }, []);
+  useEffect(() => { loadTrips(); }, [session]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -179,6 +244,8 @@ export default function TripsList({ session, onSelectTrip }) {
             const isPast = days < 0;
             const isUpcoming = days > 0;
             const isActive = days <= 0 && daysUntil(trip.end_date) >= 0;
+            const isShared = collabTripIds.has(trip.id);
+            const isOwner = !isShared;
 
             return (
               <div
@@ -186,13 +253,25 @@ export default function TripsList({ session, onSelectTrip }) {
                 style={S.tripCard}
                 onClick={() => onSelectTrip(trip.id)}
               >
+                {isOwner && (
+                  <button
+                    style={S.shareBtn}
+                    onClick={(e) => { e.stopPropagation(); setShareTrip(trip); }}
+                    title="Share trip"
+                  >
+                    👥
+                  </button>
+                )}
                 <div style={S.tripName}>{trip.name}</div>
                 <div style={S.tripDates}>
                   {trip.destination?.name && `📍 ${trip.destination.name} • `}
                   {formatDates(trip.start_date, trip.end_date)}
                 </div>
-                {isActive && <span style={S.badge("#2e7d32", "#e8f5e9")}>🟢 Traveling now</span>}
-                {isPast && <span style={S.badge("#78909c", "#eceff1")}>✓ Past trip</span>}
+                <div>
+                  {isShared && <span style={S.sharedBadge}>👥 SHARED WITH YOU</span>}
+                  {isActive && <span style={S.badge("#2e7d32", "#e8f5e9")}>🟢 Traveling now</span>}
+                  {isPast && <span style={S.badge("#78909c", "#eceff1")}>✓ Past trip</span>}
+                </div>
                 {isUpcoming && (
                   <div style={S.countdown}>
                     <div style={S.countdownNum}>{days}</div>
@@ -210,6 +289,13 @@ export default function TripsList({ session, onSelectTrip }) {
           session={session}
           onClose={() => setShowNewTrip(false)}
           onCreated={handleTripCreated}
+        />
+      )}
+
+      {shareTrip && (
+        <ShareModal
+          trip={shareTrip}
+          onClose={() => setShareTrip(null)}
         />
       )}
     </div>
