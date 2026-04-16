@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 import Login from "./Login";
-
-// Hardcoded for Phase 2 — Phase 3 will replace this with a trip selector
-const CURRENT_TRIP_ID = "00000000-0000-0000-0000-000000000001";
+import TripsList from "./TripsList";
 
 const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
 const ACTIVITY_CATEGORIES = ["🍽️ Restaurant", "🏄 Activity", "🗺️ Sightseeing", "🚗 Transport", "📝 Note"];
@@ -18,7 +16,7 @@ const ESTIMATE_CATEGORIES = ["Food & Dining", "Transportation", "Activities", "S
 
 const daysUntil = (startDate) => {
   if (!startDate) return 0;
-  const diff = new Date(startDate) - new Date();
+  const diff = new Date(startDate + "T12:00:00") - new Date();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 };
 
@@ -68,10 +66,7 @@ const S = {
     letterSpacing: 0.5,
   },
   heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600 },
-  signOut: {
-    position: "absolute",
-    top: 16,
-    right: 16,
+  backBtn: {
     background: "rgba(255,255,255,0.2)",
     color: "#fff",
     border: "none",
@@ -81,6 +76,7 @@ const S = {
     fontWeight: 700,
     cursor: "pointer",
     fontFamily: "'Nunito', sans-serif",
+    marginBottom: 10,
   },
   statRow: { marginTop: 16, display: "flex", gap: 10 },
   stat: {
@@ -267,22 +263,8 @@ function Modal({ onClose, children }) {
   );
 }
 
-// ─── MAIN APP ─────────────────────────────────────────────────────────────────
-export default function TripPlanner() {
-  const [session, setSession] = useState(null);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthChecked(true);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
+// ─── TRIP PLANNER (one trip's detail view) ───────────────────────────────────
+function TripDetail({ tripId, onBack }) {
   const [tab, setTab] = useState("home");
   const [trip, setTrip] = useState(null);
   const [days, setDays] = useState([]);
@@ -299,19 +281,17 @@ export default function TripPlanner() {
   const [packFilter, setPackFilter] = useState("All");
   const [editItem, setEditItem] = useState(null);
 
-  // ── LOAD DATA (filtered by trip_id) ────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
-    const tid = CURRENT_TRIP_ID;
     const [tr, d, it, fl, ho, pk, est, tb] = await Promise.all([
-      supabase.from("trips").select("*").eq("id", tid).maybeSingle(),
-      supabase.from("itinerary_days").select("*").eq("trip_id", tid).order("date"),
-      supabase.from("itinerary_items").select("*").eq("trip_id", tid).order("time"),
-      supabase.from("flights").select("*").eq("trip_id", tid).order("departure"),
-      supabase.from("hotels").select("*").eq("trip_id", tid).order("check_in"),
-      supabase.from("packing_items").select("*").eq("trip_id", tid).order("category"),
-      supabase.from("budget_estimates").select("*").eq("trip_id", tid).order("sort_order"),
-      supabase.from("trip_budget").select("*").eq("trip_id", tid).limit(1),
+      supabase.from("trips").select("*").eq("id", tripId).maybeSingle(),
+      supabase.from("itinerary_days").select("*").eq("trip_id", tripId).order("date"),
+      supabase.from("itinerary_items").select("*").eq("trip_id", tripId).order("time"),
+      supabase.from("flights").select("*").eq("trip_id", tripId).order("departure"),
+      supabase.from("hotels").select("*").eq("trip_id", tripId).order("check_in"),
+      supabase.from("packing_items").select("*").eq("trip_id", tripId).order("category"),
+      supabase.from("budget_estimates").select("*").eq("trip_id", tripId).order("sort_order"),
+      supabase.from("trip_budget").select("*").eq("trip_id", tripId).limit(1),
     ]);
     if (tr.error) console.error("Trip load error:", tr.error);
     setTrip(tr.data || null);
@@ -322,20 +302,14 @@ export default function TripPlanner() {
     setPacking(pk.data || []);
     setEstimates(est.data || []);
     if (tb.data && tb.data.length > 0) setTripBudget(parseFloat(tb.data[0].total_budget) || 0);
+    else setTripBudget(0);
     setLoading(false);
-  }, []);
+  }, [tripId]);
 
-  useEffect(() => {
-    if (session) load();
-  }, [load, session]);
+  useEffect(() => { load(); }, [load]);
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-  };
-
-  // ── BUDGET CALCULATIONS ────────────────────────────────────────────────────
   const flightsTotal = flights.reduce((s, fl) => s + (parseFloat(fl.price) || 0), 0);
   const hotelsTotal = hotels.reduce((s, h) => {
     const nights = nightsBetween(h.check_in, h.check_out);
@@ -347,12 +321,11 @@ export default function TripPlanner() {
   const grandTotal = confirmedTotal + estimatesTotal;
   const remaining = tripBudget - grandTotal;
 
-  // ── CRUD HELPERS (all writes include trip_id) ──────────────────────────────
   const closeModal = () => { setShowModal(null); setForm({}); setEditItem(null); };
 
   const saveDay = async () => {
     if (!form.date) return;
-    const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: CURRENT_TRIP_ID };
+    const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: tripId };
     if (editItem) {
       await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
     } else {
@@ -365,7 +338,7 @@ export default function TripPlanner() {
     if (!form.title || !activeDay) return;
     const payload = {
       day_id: activeDay,
-      trip_id: CURRENT_TRIP_ID,
+      trip_id: tripId,
       category: form.category || ACTIVITY_CATEGORIES[0],
       title: form.title,
       details: form.details || "",
@@ -385,7 +358,7 @@ export default function TripPlanner() {
   const saveFlight = async () => {
     if (!form.flight_number) return;
     const payload = {
-      trip_id: CURRENT_TRIP_ID,
+      trip_id: tripId,
       flight_number: form.flight_number,
       from_location: form.from_location || "",
       to_location: form.to_location || "",
@@ -406,7 +379,7 @@ export default function TripPlanner() {
   const saveHotel = async () => {
     if (!form.name) return;
     const payload = {
-      trip_id: CURRENT_TRIP_ID,
+      trip_id: tripId,
       name: form.name,
       location: form.location || "",
       check_in: form.check_in || "",
@@ -425,7 +398,7 @@ export default function TripPlanner() {
 
   const savePacking = async () => {
     if (!form.item) return;
-    const payload = { trip_id: CURRENT_TRIP_ID, item: form.item, category: form.category || "Misc" };
+    const payload = { trip_id: tripId, item: form.item, category: form.category || "Misc" };
     if (editItem) {
       await supabase.from("packing_items").update(payload).eq("id", editItem.id);
     } else {
@@ -437,7 +410,7 @@ export default function TripPlanner() {
   const saveEstimate = async () => {
     if (!form.label) return;
     const payload = {
-      trip_id: CURRENT_TRIP_ID,
+      trip_id: tripId,
       label: form.label,
       daily_amount: parseFloat(form.daily_amount) || 0,
       days: parseInt(form.days) || 1,
@@ -455,11 +428,11 @@ export default function TripPlanner() {
   const saveTripBudget = async (val) => {
     const num = parseFloat(val) || 0;
     setTripBudget(num);
-    const existing = await supabase.from("trip_budget").select("id").eq("trip_id", CURRENT_TRIP_ID).limit(1);
+    const existing = await supabase.from("trip_budget").select("id").eq("trip_id", tripId).limit(1);
     if (existing.data && existing.data.length > 0) {
       await supabase.from("trip_budget").update({ total_budget: num }).eq("id", existing.data[0].id);
     } else {
-      await supabase.from("trip_budget").insert({ total_budget: num, trip_id: CURRENT_TRIP_ID });
+      await supabase.from("trip_budget").insert({ total_budget: num, trip_id: tripId });
     }
   };
 
@@ -486,19 +459,6 @@ export default function TripPlanner() {
 
   const packedCount = packing.filter((p) => p.packed).length;
 
-  if (!authChecked) {
-    return (
-      <div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 48 }}>🌴</div>
-          <div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading…</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!session) return <Login />;
-
   if (loading) {
     return (
       <div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
@@ -516,9 +476,8 @@ export default function TripPlanner() {
 
   return (
     <div style={S.wrap}>
-      {/* HERO */}
       <div style={S.hero}>
-        <button style={S.signOut} onClick={handleSignOut}>Sign out</button>
+        <button style={S.backBtn} onClick={onBack}>← My Trips</button>
         <p style={{ ...S.heroTitle, marginBottom: 4 }}>{tripName} 🌴</p>
         <div style={S.heroSub}>{tripDates} ✈️</div>
         <div style={S.statRow}>
@@ -539,7 +498,6 @@ export default function TripPlanner() {
         </svg>
       </div>
 
-      {/* NAV */}
       <div style={S.nav}>
         {[
           { id: "home", l: "🏠 HOME" },
@@ -555,7 +513,6 @@ export default function TripPlanner() {
         ))}
       </div>
 
-      {/* ── HOME ── */}
       {tab === "home" && (
         <div style={S.sec}>
           <div style={{ ...S.card, background: "linear-gradient(135deg, #e8f5e9, #f0f9f9)" }}>
@@ -579,19 +536,6 @@ export default function TripPlanner() {
             </button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            {[
-              { name: "Fiji", emoji: "🌺", desc: "Islands & beaches", bg: "linear-gradient(135deg,#e76f51,#c9503a)" },
-              { name: "New Zealand", emoji: "🌿", desc: "Adventure & nature", bg: "linear-gradient(135deg,#2a9d8f,#1a7a6e)" },
-            ].map((d) => (
-              <div key={d.name} style={{ background: d.bg, borderRadius: 14, padding: "16px 14px", color: "#fff" }}>
-                <div style={{ fontSize: 28 }}>{d.emoji}</div>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 15, marginTop: 6 }}>{d.name}</div>
-                <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>{d.desc}</div>
-              </div>
-            ))}
-          </div>
-
           <div style={S.card}>
             <div style={S.label}>QUICK STATS</div>
             {[
@@ -611,11 +555,15 @@ export default function TripPlanner() {
         </div>
       )}
 
-      {/* ── ITINERARY ── */}
       {tab === "itinerary" && (
         <div style={S.sec}>
           <button style={S.btn()} onClick={() => { setForm({}); setShowModal("day"); }}>+ Add Day</button>
           <div style={{ marginTop: 12 }}>
+            {days.length === 0 && (
+              <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic", padding: 30 }}>
+                No days planned yet. Tap "+ Add Day" to start your itinerary.
+              </div>
+            )}
             {days.map((day) => {
               const dayItems = items.filter((i) => i.day_id === day.id);
               const daySpend = dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
@@ -687,7 +635,6 @@ export default function TripPlanner() {
         </div>
       )}
 
-      {/* ── FLIGHTS ── */}
       {tab === "flights" && (
         <div style={S.sec}>
           {flightsTotal > 0 && (
@@ -725,7 +672,6 @@ export default function TripPlanner() {
         </div>
       )}
 
-      {/* ── HOTELS ── */}
       {tab === "hotels" && (
         <div style={S.sec}>
           {hotelsTotal > 0 && (
@@ -771,7 +717,6 @@ export default function TripPlanner() {
         </div>
       )}
 
-      {/* ── PACKING ── */}
       {tab === "packing" && (
         <div style={S.sec}>
           <div style={{ ...S.card, background: "linear-gradient(135deg,#e0f7fa,#f0f9f9)", marginBottom: 12 }}>
@@ -829,26 +774,23 @@ export default function TripPlanner() {
         </div>
       )}
 
-      {/* ── BUDGET ── */}
       {tab === "budget" && (
         <div style={S.sec}>
-          {/* Trip Budget Input */}
           <div style={S.card}>
             <div style={S.label}>TOTAL TRIP BUDGET</div>
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
               <input
-  type="number"
-  key={tripBudget}
-  defaultValue={tripBudget || ""}
-  placeholder="Enter your total budget"
-  onBlur={(e) => saveTripBudget(e.target.value)}
-  style={{ ...S.priceInput, paddingLeft: 24 }}
-/>
+                type="number"
+                key={tripBudget}
+                defaultValue={tripBudget || ""}
+                placeholder="Enter your total budget"
+                onBlur={(e) => saveTripBudget(e.target.value)}
+                style={{ ...S.priceInput, paddingLeft: 24 }}
+              />
             </div>
           </div>
 
-          {/* Grand Total Banner */}
           <div style={S.totalBanner(remaining >= 0 ? "linear-gradient(135deg,#e8f5e9,#c8e6c9)" : "linear-gradient(135deg,#fdecea,#ffcdd2)", "#1a2e35")}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: remaining >= 0 ? "#2e7d32" : "#c62828", marginBottom: 4 }}>
               {remaining >= 0 ? "✅ UNDER BUDGET" : "⚠️ OVER BUDGET"}
@@ -866,7 +808,6 @@ export default function TripPlanner() {
             </div>
           </div>
 
-          {/* Confirmed / Known Costs */}
           <div style={{ ...S.label, marginTop: 4 }}>✅ CONFIRMED COSTS</div>
           <div style={S.budgetCard("#1565c0")}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -925,7 +866,6 @@ export default function TripPlanner() {
             </div>
           </div>
 
-          {/* Estimates */}
           <div style={{ ...S.label, marginTop: 8 }}>🟡 ESTIMATED SPENDING</div>
           <button style={{ ...S.btn("#f4a261"), marginBottom: 10 }} onClick={() => { setForm({ category: ESTIMATE_CATEGORIES[0], days: 1, daily_amount: 0 }); setShowModal("estimate"); }}>
             + Add Estimate
@@ -965,7 +905,6 @@ export default function TripPlanner() {
             </div>
           </div>
 
-          {/* Grand Total Footer */}
           <div style={{ ...S.card, background: "linear-gradient(135deg,#005f73,#0a9396)", marginTop: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontWeight: 800, color: "#fff", fontSize: 16 }}>💰 Grand Total</span>
@@ -984,9 +923,6 @@ export default function TripPlanner() {
         </div>
       )}
 
-      {/* ── MODALS ── */}
-
-      {/* Day Modal */}
       {showModal === "day" && (
         <Modal onClose={closeModal}>
           <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT DAY" : "ADD DAY"}</div>
@@ -998,7 +934,6 @@ export default function TripPlanner() {
         </Modal>
       )}
 
-      {/* Item Modal */}
       {showModal === "item" && (
         <Modal onClose={closeModal}>
           <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ACTIVITY" : "ADD ACTIVITY"}</div>
@@ -1046,7 +981,6 @@ export default function TripPlanner() {
         </Modal>
       )}
 
-      {/* Flight Modal */}
       {showModal === "flight" && (
         <Modal onClose={closeModal}>
           <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT FLIGHT" : "ADD FLIGHT"}</div>
@@ -1075,7 +1009,6 @@ export default function TripPlanner() {
         </Modal>
       )}
 
-      {/* Hotel Modal */}
       {showModal === "hotel" && (
         <Modal onClose={closeModal}>
           <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT HOTEL" : "ADD HOTEL / AIRBNB"}</div>
@@ -1115,7 +1048,6 @@ export default function TripPlanner() {
         </Modal>
       )}
 
-      {/* Packing Modal */}
       {showModal === "packing" && (
         <Modal onClose={closeModal}>
           <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ITEM" : "ADD PACKING ITEM"}</div>
@@ -1128,7 +1060,6 @@ export default function TripPlanner() {
         </Modal>
       )}
 
-      {/* Estimate Modal */}
       {showModal === "estimate" && (
         <Modal onClose={closeModal}>
           <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ESTIMATE" : "ADD SPENDING ESTIMATE"}</div>
@@ -1169,4 +1100,42 @@ export default function TripPlanner() {
       )}
     </div>
   );
+}
+
+// ─── ROOT COMPONENT ──────────────────────────────────────────────────────────
+export default function TripPlanner() {
+  const [session, setSession] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [currentTripId, setCurrentTripId] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthChecked(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) setCurrentTripId(null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!authChecked) {
+    return (
+      <div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48 }}>🌴</div>
+          <div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) return <Login />;
+
+  if (!currentTripId) {
+    return <TripsList session={session} onSelectTrip={setCurrentTripId} />;
+  }
+
+  return <TripDetail tripId={currentTripId} onBack={() => setCurrentTripId(null)} />;
 }
