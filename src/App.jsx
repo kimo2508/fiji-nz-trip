@@ -298,7 +298,7 @@ function TripDetail({ tripId, session, onBack }) {
     const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: tripId };
     if (editItem) await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
     else await supabase.from("itinerary_days").insert({ ...payload, created_by: currentUserId });
-    closeModal();
+    closeModal(); load();
   };
 
   const saveItem = async () => {
@@ -313,7 +313,7 @@ function TripDetail({ tripId, session, onBack }) {
     };
     if (editItem) await supabase.from("itinerary_items").update(payload).eq("id", editItem.id);
     else await supabase.from("itinerary_items").insert({ ...payload, created_by: currentUserId });
-    closeModal();
+    closeModal(); load();
   };
 
   const saveFlight = async () => {
@@ -333,7 +333,7 @@ function TripDetail({ tripId, session, onBack }) {
     }
     if (editItem) await supabase.from("flights").update(payload).eq("id", editItem.id);
     else await supabase.from("flights").insert({ ...payload, created_by: currentUserId });
-    closeModal();
+    closeModal(); load();
   };
 
   const saveHotel = async () => {
@@ -350,7 +350,7 @@ function TripDetail({ tripId, session, onBack }) {
     }
     if (editItem) await supabase.from("hotels").update(payload).eq("id", editItem.id);
     else await supabase.from("hotels").insert({ ...payload, created_by: currentUserId });
-    closeModal();
+    closeModal(); load();
   };
 
   const savePacking = async () => {
@@ -358,7 +358,7 @@ function TripDetail({ tripId, session, onBack }) {
     const payload = { trip_id: tripId, item: form.item, category: form.category || "Misc" };
     if (editItem) await supabase.from("packing_items").update(payload).eq("id", editItem.id);
     else await supabase.from("packing_items").insert({ ...payload, packed: false });
-    closeModal();
+    closeModal(); load();
   };
 
   const saveEstimate = async () => {
@@ -372,7 +372,7 @@ function TripDetail({ tripId, session, onBack }) {
     };
     if (editItem) await supabase.from("budget_estimates").update(payload).eq("id", editItem.id);
     else await supabase.from("budget_estimates").insert(payload);
-    closeModal();
+    closeModal(); load();
   };
 
   const saveTripBudget = async (val) => {
@@ -388,13 +388,16 @@ function TripDetail({ tripId, session, onBack }) {
 
   const deleteRecord = async (table, id) => {
     await supabase.from(table).delete().eq("id", id);
+    load();
   };
 
   const togglePacked = async (id, packed) => {
+    setPacking((p) => p.map((x) => (x.id === id ? { ...x, packed: !packed } : x)));
     await supabase.from("packing_items").update({ packed: !packed }).eq("id", id);
   };
 
   const toggleConfirmed = async (id, confirmed) => {
+    setItems((p) => p.map((x) => (x.id === id ? { ...x, confirmed: !confirmed } : x)));
     await supabase.from("itinerary_items").update({ confirmed: !confirmed }).eq("id", id);
   };
 
