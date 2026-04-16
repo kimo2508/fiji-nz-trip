@@ -14,6 +14,24 @@ const CAT_COLORS = {
 };
 const ESTIMATE_CATEGORIES = ["Food & Dining", "Transportation", "Activities", "Shopping", "Groceries", "Misc"];
 
+// Stable colors for user badges — hash email to index into a small palette
+const BADGE_COLORS = [
+  { bg: "#e0f2f1", fg: "#00695c" },
+  { bg: "#ffe0b2", fg: "#e65100" },
+  { bg: "#e1bee7", fg: "#6a1b9a" },
+  { bg: "#c5cae9", fg: "#283593" },
+  { bg: "#ffccbc", fg: "#bf360c" },
+  { bg: "#b2dfdb", fg: "#004d40" },
+  { bg: "#f8bbd0", fg: "#880e4f" },
+  { bg: "#dcedc8", fg: "#33691e" },
+];
+const colorForUser = (key) => {
+  if (!key) return BADGE_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) & 0xffffffff;
+  return BADGE_COLORS[Math.abs(hash) % BADGE_COLORS.length];
+};
+
 const daysUntil = (startDate) => {
   if (!startDate) return 0;
   const diff = new Date(startDate + "T12:00:00") - new Date();
@@ -48,7 +66,7 @@ const S = {
   heroTitle: { fontFamily: "'Playfair Display', serif", fontSize: 26, color: "#fff", margin: 0, letterSpacing: 0.5 },
   heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600 },
   backBtn: { background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 },
-  collabBadge: { display: "inline-block", background: "rgba(255,255,255,0.2)", color: "#fff", padding: "3px 10px", borderRadius: 10, fontSize: 10, fontWeight: 700, letterSpacing: 1, marginTop: 6 },
+  accessBadge: (bg, fg) => ({ display: "inline-block", background: bg, color: fg, padding: "3px 10px", borderRadius: 10, fontSize: 10, fontWeight: 700, letterSpacing: 1, marginTop: 6 }),
   statRow: { marginTop: 16, display: "flex", gap: 10 },
   stat: { background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px 12px", textAlign: "center", flex: 1 },
   statNum: { fontFamily: "'Playfair Display',serif", fontSize: 24, color: "#fff", lineHeight: 1 },
@@ -68,6 +86,7 @@ const S = {
   sheet: { background: "#fff", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto" },
   chip: (color) => ({ display: "inline-block", padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + "20", color: color, marginRight: 4 }),
   priceTag: { display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 8, fontSize: 12, fontWeight: 800, background: "#e8f5e9", color: "#2e7d32", marginLeft: "auto" },
+  addedBy: (bg, fg) => ({ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, background: bg, color: fg, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }),
   budgetCard: (accent) => ({ background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: `4px solid ${accent}` }),
   totalBanner: (bg, text) => ({ background: bg, borderRadius: 16, padding: "16px 18px", marginBottom: 12, textAlign: "center", color: text }),
 };
@@ -75,17 +94,24 @@ const S = {
 function Modal({ onClose, children }) {
   return (
     <div style={S.overlay} onClick={onClose}>
-      <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
-        {children}
-      </div>
+      <div style={S.sheet} onClick={(e) => e.stopPropagation()}>{children}</div>
     </div>
   );
+}
+
+// Attribution badge — shows "added by X" with stable per-user color
+function AddedBy({ userId, userMap }) {
+  if (!userId || !userMap) return null;
+  const name = userMap[userId] || "Someone";
+  const color = colorForUser(userId);
+  return <span style={S.addedBy(color.bg, color.fg)}>👤 {name}</span>;
 }
 
 function TripDetail({ tripId, session, onBack }) {
   const [tab, setTab] = useState("home");
   const [trip, setTrip] = useState(null);
-  const [isOwner, setIsOwner] = useState(false);
+  const [accessLevel, setAccessLevel] = useState("editor"); // "owner" | "co-owner" | "editor"
+  const [userMap, setUserMap] = useState({}); // user_id → display name
   const [days, setDays] = useState([]);
   const [items, setItems] = useState([]);
   const [flights, setFlights] = useState([]);
@@ -100,14 +126,40 @@ function TripDetail({ tripId, session, onBack }) {
   const [packFilter, setPackFilter] = useState("All");
   const [editItem, setEditItem] = useState(null);
 
+  const isOwner = accessLevel === "owner";
+  const hasFullAccess = accessLevel === "owner" || accessLevel === "co-owner";
+
+  const currentUserId = session.user.id;
+
+  // Build display name for a user — prefer Google name from auth, fall back to email local part
+  const displayNameFor = (user) => {
+    if (!user) return null;
+    const meta = user.raw_user_meta_data || user.user_metadata || {};
+    return meta.full_name || meta.name || (user.email ? user.email.split("@")[0] : "User");
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     const tripResp = await supabase.from("trips").select("*").eq("id", tripId).maybeSingle();
     if (tripResp.error) console.error("Trip load error:", tripResp.error);
     const loadedTrip = tripResp.data || null;
     setTrip(loadedTrip);
-    const userIsOwner = loadedTrip?.owner_id === session.user.id;
-    setIsOwner(userIsOwner);
+
+    // Determine access level
+    let level = "editor";
+    if (loadedTrip?.owner_id === currentUserId) {
+      level = "owner";
+    } else {
+      const { data: myCollab } = await supabase
+        .from("trip_collaborators")
+        .select("role")
+        .eq("trip_id", tripId)
+        .or(`user_id.eq.${currentUserId},user_email.eq.${session.user.email}`)
+        .maybeSingle();
+      if (myCollab?.role === "co-owner") level = "co-owner";
+    }
+    setAccessLevel(level);
+    const fullAccess = level === "owner" || level === "co-owner";
 
     const sharedQueries = [
       supabase.from("itinerary_days").select("*").eq("trip_id", tripId).order("date"),
@@ -116,47 +168,78 @@ function TripDetail({ tripId, session, onBack }) {
       supabase.from("hotels").select("*").eq("trip_id", tripId).order("check_in"),
     ];
 
-    const ownerOnlyQueries = userIsOwner ? [
+    const fullAccessQueries = fullAccess ? [
       supabase.from("packing_items").select("*").eq("trip_id", tripId).order("category"),
       supabase.from("budget_estimates").select("*").eq("trip_id", tripId).order("sort_order"),
       supabase.from("trip_budget").select("*").eq("trip_id", tripId).limit(1),
     ] : [];
 
-    const [d, it, fl, ho, ...ownerResults] = await Promise.all([...sharedQueries, ...ownerOnlyQueries]);
+    const [d, it, fl, ho, ...rest] = await Promise.all([...sharedQueries, ...fullAccessQueries]);
 
     setDays(d.data || []);
     setItems(it.data || []);
     setHotels(ho.data || []);
 
-    // Mask flight price/confirmation for collaborators
     const flightData = fl.data || [];
-    if (userIsOwner) {
-      setFlights(flightData);
-    } else {
-      setFlights(flightData.map((f) => ({ ...f, price: 0, confirmation: "" })));
-    }
+    if (fullAccess) setFlights(flightData);
+    else setFlights(flightData.map((f) => ({ ...f, price: 0, confirmation: "" })));
 
-    if (userIsOwner && ownerResults.length === 3) {
-      const [pk, est, tb] = ownerResults;
+    if (fullAccess && rest.length === 3) {
+      const [pk, est, tb] = rest;
       setPacking(pk.data || []);
       setEstimates(est.data || []);
-      if (tb.data && tb.data.length > 0) setTripBudget(parseFloat(tb.data[0].total_budget) || 0);
-      else setTripBudget(0);
+      setTripBudget(tb.data && tb.data.length > 0 ? parseFloat(tb.data[0].total_budget) || 0 : 0);
     } else {
-      setPacking([]);
-      setEstimates([]);
-      setTripBudget(0);
+      setPacking([]); setEstimates([]); setTripBudget(0);
     }
 
+    // Build userMap: collect all unique user_ids from created_by fields + owner + collaborators
+    const ids = new Set();
+    if (loadedTrip?.owner_id) ids.add(loadedTrip.owner_id);
+    (d.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
+    (it.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
+    (fl.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
+    (ho.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
+
+    // Also include accepted collaborators (they show up in trip_collaborators with user_id populated)
+    const { data: collabRows } = await supabase
+      .from("trip_collaborators")
+      .select("user_id, user_email")
+      .eq("trip_id", tripId);
+    const collabEmailById = {};
+    (collabRows || []).forEach((c) => {
+      if (c.user_id) {
+        ids.add(c.user_id);
+        collabEmailById[c.user_id] = c.user_email;
+      }
+    });
+
+    // We can't query auth.users directly from the client. Build the map from what we know:
+    //  - The current user (self)
+    //  - Collaborator emails from trip_collaborators
+    //  - Owner: use email from trip_collaborators if they're listed there, otherwise "Trip Owner"
+    const map = {};
+    ids.forEach((id) => {
+      if (id === currentUserId) {
+        map[id] = displayNameFor(session.user);
+      } else if (collabEmailById[id]) {
+        map[id] = collabEmailById[id].split("@")[0];
+      } else if (id === loadedTrip?.owner_id) {
+        map[id] = "Trip owner";
+      } else {
+        map[id] = "Someone";
+      }
+    });
+    setUserMap(map);
+
     setLoading(false);
-  }, [tripId, session.user.id]);
+  }, [tripId, currentUserId, session.user]);
 
   useEffect(() => { load(); }, [load]);
 
-  // If collaborator is on a tab they shouldn't see, kick them back to home
   useEffect(() => {
-    if (!isOwner && (tab === "packing" || tab === "budget")) setTab("home");
-  }, [isOwner, tab]);
+    if (!hasFullAccess && (tab === "packing" || tab === "budget")) setTab("home");
+  }, [hasFullAccess, tab]);
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -177,7 +260,7 @@ function TripDetail({ tripId, session, onBack }) {
     if (!form.date) return;
     const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: tripId };
     if (editItem) await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
-    else await supabase.from("itinerary_days").insert(payload);
+    else await supabase.from("itinerary_days").insert({ ...payload, created_by: currentUserId });
     closeModal(); load();
   };
 
@@ -192,13 +275,12 @@ function TripDetail({ tripId, session, onBack }) {
       is_booked: form.is_booked === "true" || form.is_booked === true,
     };
     if (editItem) await supabase.from("itinerary_items").update(payload).eq("id", editItem.id);
-    else await supabase.from("itinerary_items").insert(payload);
+    else await supabase.from("itinerary_items").insert({ ...payload, created_by: currentUserId });
     closeModal(); load();
   };
 
   const saveFlight = async () => {
     if (!form.flight_number) return;
-    // Collaborators can't set price or confirmation — preserve existing values
     const payload = {
       trip_id: tripId,
       flight_number: form.flight_number,
@@ -208,12 +290,12 @@ function TripDetail({ tripId, session, onBack }) {
       arrival: form.arrival || "",
       airline: form.airline || "",
     };
-    if (isOwner) {
+    if (hasFullAccess) {
       payload.confirmation = form.confirmation || "";
       payload.price = parseFloat(form.price) || 0;
     }
     if (editItem) await supabase.from("flights").update(payload).eq("id", editItem.id);
-    else await supabase.from("flights").insert(payload);
+    else await supabase.from("flights").insert({ ...payload, created_by: currentUserId });
     closeModal(); load();
   };
 
@@ -225,12 +307,12 @@ function TripDetail({ tripId, session, onBack }) {
       check_in: form.check_in || "", check_out: form.check_out || "",
       notes: form.notes || "",
     };
-    if (isOwner) {
+    if (hasFullAccess) {
       payload.confirmation = form.confirmation || "";
       payload.price_per_night = parseFloat(form.price_per_night) || 0;
     }
     if (editItem) await supabase.from("hotels").update(payload).eq("id", editItem.id);
-    else await supabase.from("hotels").insert(payload);
+    else await supabase.from("hotels").insert({ ...payload, created_by: currentUserId });
     closeModal(); load();
   };
 
@@ -311,7 +393,7 @@ function TripDetail({ tripId, session, onBack }) {
     { id: "flights", l: "✈️ FLIGHTS" },
     { id: "hotels", l: "🏨 HOTELS" },
   ];
-  if (isOwner) {
+  if (hasFullAccess) {
     tabs.push({ id: "packing", l: "🎒 PACKING" });
     tabs.push({ id: "budget", l: "💰 BUDGET" });
   }
@@ -322,13 +404,13 @@ function TripDetail({ tripId, session, onBack }) {
     { v: `${packedCount}/${packing.length}`, l: "PACKED" },
     { v: fmt(confirmedTotal), l: "CONFIRMED" },
   ];
-  const collabStats = [
+  const editorStats = [
     { v: daysUntil(tripStart), l: "DAYS TO GO" },
     { v: days.length, l: "DAYS PLANNED" },
     { v: items.length, l: "ACTIVITIES" },
     { v: hotels.length, l: "STAYS" },
   ];
-  const displayStats = isOwner ? ownerStats : collabStats;
+  const displayStats = hasFullAccess ? ownerStats : editorStats;
 
   return (
     <div style={S.wrap}>
@@ -336,11 +418,16 @@ function TripDetail({ tripId, session, onBack }) {
         <button style={S.backBtn} onClick={onBack}>← My Trips</button>
         <p style={{ ...S.heroTitle, marginBottom: 4 }}>{tripName} 🌴</p>
         <div style={S.heroSub}>{tripDates} ✈️</div>
-        {!isOwner && <div style={S.collabBadge}>👥 SHARED WITH YOU</div>}
+        {accessLevel === "co-owner" && (
+          <div style={S.accessBadge("rgba(255,255,255,0.25)", "#fff")}>⭐ CO-OWNER</div>
+        )}
+        {accessLevel === "editor" && (
+          <div style={S.accessBadge("rgba(255,255,255,0.2)", "#fff")}>👥 SHARED WITH YOU</div>
+        )}
         <div style={S.statRow}>
           {displayStats.map((s, i) => (
             <div key={i} style={S.stat}>
-              <div style={{ ...S.statNum, fontSize: (isOwner && i === 3) ? 14 : 24 }}>{s.v}</div>
+              <div style={{ ...S.statNum, fontSize: (hasFullAccess && i === 3) ? 14 : 24 }}>{s.v}</div>
               <div style={S.statLabel}>{s.l}</div>
             </div>
           ))}
@@ -358,7 +445,7 @@ function TripDetail({ tripId, session, onBack }) {
 
       {tab === "home" && (
         <div style={S.sec}>
-          {isOwner && (
+          {hasFullAccess && (
             <div style={{ ...S.card, background: "linear-gradient(135deg, #e8f5e9, #f0f9f9)" }}>
               <div style={S.label}>TRIP BUDGET SNAPSHOT</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -409,15 +496,16 @@ function TripDetail({ tripId, session, onBack }) {
             )}
             {days.map((day) => {
               const dayItems = items.filter((i) => i.day_id === day.id);
-              const daySpend = isOwner ? dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0) : 0;
+              const daySpend = hasFullAccess ? dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0) : 0;
               return (
                 <div key={day.id} style={{ ...S.card, marginBottom: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>
                         {new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                       </div>
                       <div style={{ fontSize: 12, color: "#78909c" }}>{day.location}</div>
+                      <AddedBy userId={day.created_by} userMap={userMap} />
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {daySpend > 0 && <span style={S.priceTag}>{fmt(daySpend)}</span>}
@@ -433,7 +521,7 @@ function TripDetail({ tripId, session, onBack }) {
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span style={S.chip(CAT_COLORS[item.category] || "#90a4ae")}>{item.category}</span>
                           <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{item.title}</span>
-                          {isOwner && (parseFloat(item.price) > 0) && (
+                          {hasFullAccess && (parseFloat(item.price) > 0) && (
                             <span style={{ ...S.priceTag, fontSize: 11 }}>
                               {item.is_booked ? "✅" : "~"} {fmt(item.price)}
                             </span>
@@ -441,6 +529,7 @@ function TripDetail({ tripId, session, onBack }) {
                         </div>
                         {item.time && <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>⏰ {item.time}</div>}
                         {item.details && <div style={{ fontSize: 12, color: "#546e7a", marginTop: 3 }}>{item.details}</div>}
+                        <AddedBy userId={item.created_by} userMap={userMap} />
                       </div>
                       <div style={{ display: "flex", gap: 4 }}>
                         <button style={S.btnSm("#94a3b8")} onClick={() => { setActiveDay(day.id); openEdit("item", item); }}>✏️</button>
@@ -460,7 +549,7 @@ function TripDetail({ tripId, session, onBack }) {
 
       {tab === "flights" && (
         <div style={S.sec}>
-          {isOwner && flightsTotal > 0 && (
+          {hasFullAccess && flightsTotal > 0 && (
             <div style={{ ...S.totalBanner("linear-gradient(135deg,#e3f2fd,#bbdefb)", "#1a2e35"), marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#1565c0", marginBottom: 4 }}>TOTAL FLIGHTS COST</div>
               <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#1565c0" }}>{fmt(flightsTotal)}</div>
@@ -471,16 +560,17 @@ function TripDetail({ tripId, session, onBack }) {
             {flights.map((fl) => (
               <div key={fl.id} style={S.card}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>✈️ {fl.flight_number}</div>
                     <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>{fl.from_location} → {fl.to_location}</div>
                     {fl.airline && <div style={{ fontSize: 12, color: "#78909c" }}>{fl.airline}</div>}
                     {fl.departure && <div style={{ fontSize: 12, color: "#78909c" }}>Dep: {fl.departure}</div>}
                     {fl.arrival && <div style={{ fontSize: 12, color: "#78909c" }}>Arr: {fl.arrival}</div>}
-                    {isOwner && fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
+                    {hasFullAccess && fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
+                    <AddedBy userId={fl.created_by} userMap={userMap} />
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                    {isOwner && parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
+                    {hasFullAccess && parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
                     <div style={{ display: "flex", gap: 4 }}>
                       <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("flight", fl)}>✏️</button>
                       <button style={S.del} onClick={() => deleteRecord("flights", fl.id)}>×</button>
@@ -495,7 +585,7 @@ function TripDetail({ tripId, session, onBack }) {
 
       {tab === "hotels" && (
         <div style={S.sec}>
-          {isOwner && hotelsTotal > 0 && (
+          {hasFullAccess && hotelsTotal > 0 && (
             <div style={{ ...S.totalBanner("linear-gradient(135deg,#f3e5f5,#e1bee7)", "#1a2e35"), marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#6a1b9a", marginBottom: 4 }}>TOTAL LODGING COST</div>
               <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#6a1b9a" }}>{fmt(hotelsTotal)}</div>
@@ -516,14 +606,15 @@ function TripDetail({ tripId, session, onBack }) {
                         {h.check_in} → {h.check_out}
                         {nights > 0 && <span style={{ fontWeight: 700, color: "#0a9396" }}> ({nights} nights)</span>}
                       </div>
-                      {isOwner && parseFloat(h.price_per_night) > 0 && (
+                      {hasFullAccess && parseFloat(h.price_per_night) > 0 && (
                         <div style={{ fontSize: 12, color: "#78909c", marginTop: 2 }}>
                           {fmt(h.price_per_night)}/night
                           {total > 0 && <span style={{ fontWeight: 800, color: "#2e7d32" }}> = {fmt(total)} total</span>}
                         </div>
                       )}
-                      {isOwner && h.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {h.confirmation}</div>}
+                      {hasFullAccess && h.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {h.confirmation}</div>}
                       {h.notes && <div style={{ fontSize: 12, color: "#78909c", marginTop: 4, fontStyle: "italic" }}>{h.notes}</div>}
+                      <AddedBy userId={h.created_by} userMap={userMap} />
                     </div>
                     <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
                       <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("hotel", h)}>✏️</button>
@@ -537,7 +628,7 @@ function TripDetail({ tripId, session, onBack }) {
         </div>
       )}
 
-      {isOwner && tab === "packing" && (
+      {hasFullAccess && tab === "packing" && (
         <div style={S.sec}>
           <div style={{ ...S.card, background: "linear-gradient(135deg,#e0f7fa,#f0f9f9)", marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -578,7 +669,7 @@ function TripDetail({ tripId, session, onBack }) {
         </div>
       )}
 
-      {isOwner && tab === "budget" && (
+      {hasFullAccess && tab === "budget" && (
         <div style={S.sec}>
           <div style={S.card}>
             <div style={S.label}>TOTAL TRIP BUDGET</div>
@@ -741,7 +832,7 @@ function TripDetail({ tripId, session, onBack }) {
           <input style={S.input} placeholder="Title *" value={form.title || ""} onChange={f("title")} />
           <input style={S.input} placeholder="Details / notes" value={form.details || ""} onChange={f("details")} />
           <input style={S.input} type="time" value={form.time || ""} onChange={f("time")} />
-          {isOwner && (
+          {hasFullAccess && (
             <>
               <div style={S.label}>PRICE</div>
               <div style={{ position: "relative" }}>
@@ -772,7 +863,7 @@ function TripDetail({ tripId, session, onBack }) {
           <input style={S.input} placeholder="To (e.g. NAN - Nadi)" value={form.to_location || ""} onChange={f("to_location")} />
           <input style={S.input} placeholder="Departure (date & time)" value={form.departure || ""} onChange={f("departure")} />
           <input style={S.input} placeholder="Arrival (date & time)" value={form.arrival || ""} onChange={f("arrival")} />
-          {isOwner && (
+          {hasFullAccess && (
             <>
               <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
               <div style={S.label}>TICKET PRICE</div>
@@ -802,7 +893,7 @@ function TripDetail({ tripId, session, onBack }) {
             </div>
           )}
           <input style={S.input} placeholder="Notes" value={form.notes || ""} onChange={f("notes")} />
-          {isOwner && (
+          {hasFullAccess && (
             <>
               <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
               <div style={S.label}>PRICE PER NIGHT</div>
