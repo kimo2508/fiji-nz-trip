@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
 import Login from "./Login";
 
-const TRIP_START = "2026-05-18";
+// Hardcoded for Phase 2 — Phase 3 will replace this with a trip selector
+const CURRENT_TRIP_ID = "00000000-0000-0000-0000-000000000001";
 
 const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
 const ACTIVITY_CATEGORIES = ["🍽️ Restaurant", "🏄 Activity", "🗺️ Sightseeing", "🚗 Transport", "📝 Note"];
@@ -15,8 +16,9 @@ const CAT_COLORS = {
 };
 const ESTIMATE_CATEGORIES = ["Food & Dining", "Transportation", "Activities", "Shopping", "Groceries", "Misc"];
 
-const daysUntil = () => {
-  const diff = new Date(TRIP_START) - new Date();
+const daysUntil = (startDate) => {
+  if (!startDate) return 0;
+  const diff = new Date(startDate) - new Date();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 };
 
@@ -29,6 +31,17 @@ const nightsBetween = (checkIn, checkOut) => {
   if (!checkIn || !checkOut) return 0;
   const diff = new Date(checkOut) - new Date(checkIn);
   return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
+};
+
+const formatTripDates = (start, end) => {
+  if (!start || !end) return "";
+  const s = new Date(start + "T12:00:00");
+  const e = new Date(end + "T12:00:00");
+  const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear();
+  const sameYear = s.getFullYear() === e.getFullYear();
+  if (sameMonth) return `${s.toLocaleDateString("en-US", { month: "long" })} ${s.getDate()}–${e.getDate()}, ${s.getFullYear()}`;
+  if (sameYear) return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${s.getFullYear()}`;
+  return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 };
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
@@ -55,6 +68,20 @@ const S = {
     letterSpacing: 0.5,
   },
   heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600 },
+  signOut: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    background: "rgba(255,255,255,0.2)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "6px 12px",
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: "'Nunito', sans-serif",
+  },
   statRow: { marginTop: 16, display: "flex", gap: 10 },
   stat: {
     background: "rgba(255,255,255,0.15)",
@@ -257,6 +284,7 @@ export default function TripPlanner() {
   }, []);
 
   const [tab, setTab] = useState("home");
+  const [trip, setTrip] = useState(null);
   const [days, setDays] = useState([]);
   const [items, setItems] = useState([]);
   const [flights, setFlights] = useState([]);
@@ -271,18 +299,21 @@ export default function TripPlanner() {
   const [packFilter, setPackFilter] = useState("All");
   const [editItem, setEditItem] = useState(null);
 
-  // ── LOAD DATA ──────────────────────────────────────────────────────────────
+  // ── LOAD DATA (filtered by trip_id) ────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
-    const [d, it, fl, ho, pk, est, tb] = await Promise.all([
-      supabase.from("itinerary_days").select("*").order("date"),
-      supabase.from("itinerary_items").select("*").order("time"),
-      supabase.from("flights").select("*").order("departure"),
-      supabase.from("hotels").select("*").order("check_in"),
-      supabase.from("packing_items").select("*").order("category"),
-      supabase.from("budget_estimates").select("*").order("sort_order"),
-      supabase.from("trip_budget").select("*").limit(1),
+    const tid = CURRENT_TRIP_ID;
+    const [tr, d, it, fl, ho, pk, est, tb] = await Promise.all([
+      supabase.from("trips").select("*").eq("id", tid).single(),
+      supabase.from("itinerary_days").select("*").eq("trip_id", tid).order("date"),
+      supabase.from("itinerary_items").select("*").eq("trip_id", tid).order("time"),
+      supabase.from("flights").select("*").eq("trip_id", tid).order("departure"),
+      supabase.from("hotels").select("*").eq("trip_id", tid).order("check_in"),
+      supabase.from("packing_items").select("*").eq("trip_id", tid).order("category"),
+      supabase.from("budget_estimates").select("*").eq("trip_id", tid).order("sort_order"),
+      supabase.from("trip_budget").select("*").eq("trip_id", tid).limit(1),
     ]);
+    setTrip(tr.data || null);
     setDays(d.data || []);
     setItems(it.data || []);
     setFlights(fl.data || []);
@@ -293,9 +324,15 @@ export default function TripPlanner() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (session) load();
+  }, [load, session]);
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   // ── BUDGET CALCULATIONS ────────────────────────────────────────────────────
   const flightsTotal = flights.reduce((s, fl) => s + (parseFloat(fl.price) || 0), 0);
@@ -309,15 +346,16 @@ export default function TripPlanner() {
   const grandTotal = confirmedTotal + estimatesTotal;
   const remaining = tripBudget - grandTotal;
 
-  // ── CRUD HELPERS ───────────────────────────────────────────────────────────
+  // ── CRUD HELPERS (all writes include trip_id) ──────────────────────────────
   const closeModal = () => { setShowModal(null); setForm({}); setEditItem(null); };
 
   const saveDay = async () => {
     if (!form.date) return;
+    const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: CURRENT_TRIP_ID };
     if (editItem) {
-      await supabase.from("itinerary_days").update({ date: form.date, location: form.location || "", notes: form.notes || "" }).eq("id", editItem.id);
+      await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
     } else {
-      await supabase.from("itinerary_days").insert({ date: form.date, location: form.location || "", notes: form.notes || "" });
+      await supabase.from("itinerary_days").insert(payload);
     }
     closeModal(); load();
   };
@@ -326,6 +364,7 @@ export default function TripPlanner() {
     if (!form.title || !activeDay) return;
     const payload = {
       day_id: activeDay,
+      trip_id: CURRENT_TRIP_ID,
       category: form.category || ACTIVITY_CATEGORIES[0],
       title: form.title,
       details: form.details || "",
@@ -345,6 +384,7 @@ export default function TripPlanner() {
   const saveFlight = async () => {
     if (!form.flight_number) return;
     const payload = {
+      trip_id: CURRENT_TRIP_ID,
       flight_number: form.flight_number,
       from_location: form.from_location || "",
       to_location: form.to_location || "",
@@ -365,6 +405,7 @@ export default function TripPlanner() {
   const saveHotel = async () => {
     if (!form.name) return;
     const payload = {
+      trip_id: CURRENT_TRIP_ID,
       name: form.name,
       location: form.location || "",
       check_in: form.check_in || "",
@@ -383,10 +424,11 @@ export default function TripPlanner() {
 
   const savePacking = async () => {
     if (!form.item) return;
+    const payload = { trip_id: CURRENT_TRIP_ID, item: form.item, category: form.category || "Misc" };
     if (editItem) {
-      await supabase.from("packing_items").update({ item: form.item, category: form.category || "Misc" }).eq("id", editItem.id);
+      await supabase.from("packing_items").update(payload).eq("id", editItem.id);
     } else {
-      await supabase.from("packing_items").insert({ item: form.item, category: form.category || "Misc", packed: false });
+      await supabase.from("packing_items").insert({ ...payload, packed: false });
     }
     closeModal(); load();
   };
@@ -394,6 +436,7 @@ export default function TripPlanner() {
   const saveEstimate = async () => {
     if (!form.label) return;
     const payload = {
+      trip_id: CURRENT_TRIP_ID,
       label: form.label,
       daily_amount: parseFloat(form.daily_amount) || 0,
       days: parseInt(form.days) || 1,
@@ -411,11 +454,11 @@ export default function TripPlanner() {
   const saveTripBudget = async (val) => {
     const num = parseFloat(val) || 0;
     setTripBudget(num);
-    const existing = await supabase.from("trip_budget").select("id").limit(1);
+    const existing = await supabase.from("trip_budget").select("id").eq("trip_id", CURRENT_TRIP_ID).limit(1);
     if (existing.data && existing.data.length > 0) {
       await supabase.from("trip_budget").update({ total_budget: num }).eq("id", existing.data[0].id);
     } else {
-      await supabase.from("trip_budget").insert({ total_budget: num });
+      await supabase.from("trip_budget").insert({ total_budget: num, trip_id: CURRENT_TRIP_ID });
     }
   };
 
@@ -466,15 +509,20 @@ export default function TripPlanner() {
     );
   }
 
+  const tripName = trip?.name || "My Trip";
+  const tripDates = trip ? formatTripDates(trip.start_date, trip.end_date) : "";
+  const tripStart = trip?.start_date;
+
   return (
     <div style={S.wrap}>
       {/* HERO */}
       <div style={S.hero}>
-        <p style={{ ...S.heroTitle, marginBottom: 4 }}>Fiji & New Zealand 🌴</p>
-        <div style={S.heroSub}>May 2026 ✈️</div>
+        <button style={S.signOut} onClick={handleSignOut}>Sign out</button>
+        <p style={{ ...S.heroTitle, marginBottom: 4 }}>{tripName} 🌴</p>
+        <div style={S.heroSub}>{tripDates} ✈️</div>
         <div style={S.statRow}>
           {[
-            { v: daysUntil(), l: "DAYS TO GO" },
+            { v: daysUntil(tripStart), l: "DAYS TO GO" },
             { v: days.length, l: "DAYS PLANNED" },
             { v: `${packedCount}/${packing.length}`, l: "PACKED" },
             { v: fmt(confirmedTotal), l: "CONFIRMED" },
