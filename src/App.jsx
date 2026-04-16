@@ -42,217 +42,36 @@ const formatTripDates = (start, end) => {
   return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 };
 
-// ─── STYLES ──────────────────────────────────────────────────────────────────
 const S = {
-  wrap: {
-    maxWidth: 480,
-    margin: "0 auto",
-    minHeight: "100vh",
-    background: "#f0f9f9",
-    fontFamily: "'Nunito', sans-serif",
-    paddingBottom: 80,
-  },
-  hero: {
-    background: "linear-gradient(135deg, #0a9396 0%, #005f73 100%)",
-    padding: "28px 20px 48px",
-    position: "relative",
-    overflow: "hidden",
-  },
-  heroTitle: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 26,
-    color: "#fff",
-    margin: 0,
-    letterSpacing: 0.5,
-  },
+  wrap: { maxWidth: 480, margin: "0 auto", minHeight: "100vh", background: "#f0f9f9", fontFamily: "'Nunito', sans-serif", paddingBottom: 80 },
+  hero: { background: "linear-gradient(135deg, #0a9396 0%, #005f73 100%)", padding: "28px 20px 48px", position: "relative", overflow: "hidden" },
+  heroTitle: { fontFamily: "'Playfair Display', serif", fontSize: 26, color: "#fff", margin: 0, letterSpacing: 0.5 },
   heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600 },
-  backBtn: {
-    background: "rgba(255,255,255,0.2)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "6px 12px",
-    fontSize: 11,
-    fontWeight: 700,
-    cursor: "pointer",
-    fontFamily: "'Nunito', sans-serif",
-    marginBottom: 10,
-  },
+  backBtn: { background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 },
+  collabBadge: { display: "inline-block", background: "rgba(255,255,255,0.2)", color: "#fff", padding: "3px 10px", borderRadius: 10, fontSize: 10, fontWeight: 700, letterSpacing: 1, marginTop: 6 },
   statRow: { marginTop: 16, display: "flex", gap: 10 },
-  stat: {
-    background: "rgba(255,255,255,0.15)",
-    borderRadius: 12,
-    padding: "10px 12px",
-    textAlign: "center",
-    flex: 1,
-  },
+  stat: { background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px 12px", textAlign: "center", flex: 1 },
   statNum: { fontFamily: "'Playfair Display',serif", fontSize: 24, color: "#fff", lineHeight: 1 },
   statLabel: { fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1, marginTop: 2 },
-  nav: {
-    position: "sticky",
-    top: 0,
-    zIndex: 100,
-    background: "#fff",
-    display: "flex",
-    overflowX: "auto",
-    borderBottom: "2px solid #e0f2f1",
-    scrollbarWidth: "none",
-  },
-  nb: (active) => ({
-    flex: "0 0 auto",
-    padding: "12px 14px",
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 0.5,
-    border: "none",
-    background: "none",
-    color: active ? "#0a9396" : "#90a4ae",
-    borderBottom: active ? "2px solid #0a9396" : "2px solid transparent",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-    transition: "all 0.15s",
-  }),
+  nav: { position: "sticky", top: 0, zIndex: 100, background: "#fff", display: "flex", overflowX: "auto", borderBottom: "2px solid #e0f2f1", scrollbarWidth: "none" },
+  nb: (active) => ({ flex: "0 0 auto", padding: "12px 14px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, border: "none", background: "none", color: active ? "#0a9396" : "#90a4ae", borderBottom: active ? "2px solid #0a9396" : "2px solid transparent", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s" }),
   sec: { padding: "16px 16px 0" },
-  card: {
-    background: "#fff",
-    borderRadius: 14,
-    padding: "14px 16px",
-    marginBottom: 12,
-    boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
-  },
+  card: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)" },
   label: { fontSize: 10, fontWeight: 800, color: "#0a9396", letterSpacing: 1.5, marginBottom: 8 },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    border: "1.5px solid #e0f2f1",
-    borderRadius: 10,
-    fontSize: 14,
-    fontFamily: "'Nunito', sans-serif",
-    background: "#f8fdfd",
-    color: "#1a2e35",
-    outline: "none",
-    boxSizing: "border-box",
-    marginBottom: 8,
-  },
-  priceInput: {
-    padding: "10px 12px",
-    border: "1.5px solid #b2dfdb",
-    borderRadius: 10,
-    fontSize: 15,
-    fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
-    background: "#e8f5e9",
-    color: "#2e7d32",
-    outline: "none",
-    boxSizing: "border-box",
-    marginBottom: 8,
-    width: "100%",
-  },
-  select: {
-    width: "100%",
-    padding: "10px 12px",
-    border: "1.5px solid #e0f2f1",
-    borderRadius: 10,
-    fontSize: 14,
-    fontFamily: "'Nunito', sans-serif",
-    background: "#f8fdfd",
-    color: "#1a2e35",
-    outline: "none",
-    marginBottom: 8,
-  },
-  btn: (color = "#0a9396") => ({
-    background: color,
-    color: "#fff",
-    border: "none",
-    borderRadius: 10,
-    padding: "11px 20px",
-    fontSize: 13,
-    fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
-    cursor: "pointer",
-    width: "100%",
-    marginTop: 4,
-  }),
-  btnSm: (color = "#0a9396") => ({
-    background: color,
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "6px 12px",
-    fontSize: 11,
-    fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
-    cursor: "pointer",
-  }),
-  del: {
-    background: "none",
-    border: "none",
-    color: "#b0bec5",
-    fontSize: 18,
-    cursor: "pointer",
-    padding: "2px 6px",
-    lineHeight: 1,
-  },
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.45)",
-    zIndex: 200,
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  sheet: {
-    background: "#fff",
-    borderRadius: "20px 20px 0 0",
-    padding: "24px 20px 40px",
-    width: "100%",
-    maxWidth: 480,
-    maxHeight: "90vh",
-    overflowY: "auto",
-  },
-  row: { display: "flex", gap: 8, alignItems: "center" },
-  chip: (color) => ({
-    display: "inline-block",
-    padding: "3px 9px",
-    borderRadius: 20,
-    fontSize: 11,
-    fontWeight: 700,
-    background: color + "20",
-    color: color,
-    marginRight: 4,
-  }),
-  priceTag: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 3,
-    padding: "3px 8px",
-    borderRadius: 8,
-    fontSize: 12,
-    fontWeight: 800,
-    background: "#e8f5e9",
-    color: "#2e7d32",
-    marginLeft: "auto",
-  },
-  budgetCard: (accent) => ({
-    background: "#fff",
-    borderRadius: 14,
-    padding: "14px 16px",
-    marginBottom: 10,
-    boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
-    borderLeft: `4px solid ${accent}`,
-  }),
-  totalBanner: (bg, text) => ({
-    background: bg,
-    borderRadius: 16,
-    padding: "16px 18px",
-    marginBottom: 12,
-    textAlign: "center",
-    color: text,
-  }),
+  input: { width: "100%", padding: "10px 12px", border: "1.5px solid #e0f2f1", borderRadius: 10, fontSize: 14, fontFamily: "'Nunito', sans-serif", background: "#f8fdfd", color: "#1a2e35", outline: "none", boxSizing: "border-box", marginBottom: 8 },
+  priceInput: { padding: "10px 12px", border: "1.5px solid #b2dfdb", borderRadius: 10, fontSize: 15, fontWeight: 700, fontFamily: "'Nunito', sans-serif", background: "#e8f5e9", color: "#2e7d32", outline: "none", boxSizing: "border-box", marginBottom: 8, width: "100%" },
+  select: { width: "100%", padding: "10px 12px", border: "1.5px solid #e0f2f1", borderRadius: 10, fontSize: 14, fontFamily: "'Nunito', sans-serif", background: "#f8fdfd", color: "#1a2e35", outline: "none", marginBottom: 8 },
+  btn: (color = "#0a9396") => ({ background: color, color: "#fff", border: "none", borderRadius: 10, padding: "11px 20px", fontSize: 13, fontWeight: 700, fontFamily: "'Nunito', sans-serif", cursor: "pointer", width: "100%", marginTop: 4 }),
+  btnSm: (color = "#0a9396") => ({ background: color, color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, fontFamily: "'Nunito', sans-serif", cursor: "pointer" }),
+  del: { background: "none", border: "none", color: "#b0bec5", fontSize: 18, cursor: "pointer", padding: "2px 6px", lineHeight: 1 },
+  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" },
+  sheet: { background: "#fff", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto" },
+  chip: (color) => ({ display: "inline-block", padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + "20", color: color, marginRight: 4 }),
+  priceTag: { display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 8, fontSize: 12, fontWeight: 800, background: "#e8f5e9", color: "#2e7d32", marginLeft: "auto" },
+  budgetCard: (accent) => ({ background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: `4px solid ${accent}` }),
+  totalBanner: (bg, text) => ({ background: bg, borderRadius: 16, padding: "16px 18px", marginBottom: 12, textAlign: "center", color: text }),
 };
 
-// ─── MODAL WRAPPER ────────────────────────────────────────────────────────────
 function Modal({ onClose, children }) {
   return (
     <div style={S.overlay} onClick={onClose}>
@@ -263,10 +82,10 @@ function Modal({ onClose, children }) {
   );
 }
 
-// ─── TRIP PLANNER (one trip's detail view) ───────────────────────────────────
-function TripDetail({ tripId, onBack }) {
+function TripDetail({ tripId, session, onBack }) {
   const [tab, setTab] = useState("home");
   const [trip, setTrip] = useState(null);
+  const [isOwner, setIsOwner] = useState(false);
   const [days, setDays] = useState([]);
   const [items, setItems] = useState([]);
   const [flights, setFlights] = useState([]);
@@ -283,30 +102,61 @@ function TripDetail({ tripId, onBack }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [tr, d, it, fl, ho, pk, est, tb] = await Promise.all([
-      supabase.from("trips").select("*").eq("id", tripId).maybeSingle(),
+    const tripResp = await supabase.from("trips").select("*").eq("id", tripId).maybeSingle();
+    if (tripResp.error) console.error("Trip load error:", tripResp.error);
+    const loadedTrip = tripResp.data || null;
+    setTrip(loadedTrip);
+    const userIsOwner = loadedTrip?.owner_id === session.user.id;
+    setIsOwner(userIsOwner);
+
+    const sharedQueries = [
       supabase.from("itinerary_days").select("*").eq("trip_id", tripId).order("date"),
       supabase.from("itinerary_items").select("*").eq("trip_id", tripId).order("time"),
       supabase.from("flights").select("*").eq("trip_id", tripId).order("departure"),
       supabase.from("hotels").select("*").eq("trip_id", tripId).order("check_in"),
+    ];
+
+    const ownerOnlyQueries = userIsOwner ? [
       supabase.from("packing_items").select("*").eq("trip_id", tripId).order("category"),
       supabase.from("budget_estimates").select("*").eq("trip_id", tripId).order("sort_order"),
       supabase.from("trip_budget").select("*").eq("trip_id", tripId).limit(1),
-    ]);
-    if (tr.error) console.error("Trip load error:", tr.error);
-    setTrip(tr.data || null);
+    ] : [];
+
+    const [d, it, fl, ho, ...ownerResults] = await Promise.all([...sharedQueries, ...ownerOnlyQueries]);
+
     setDays(d.data || []);
     setItems(it.data || []);
-    setFlights(fl.data || []);
     setHotels(ho.data || []);
-    setPacking(pk.data || []);
-    setEstimates(est.data || []);
-    if (tb.data && tb.data.length > 0) setTripBudget(parseFloat(tb.data[0].total_budget) || 0);
-    else setTripBudget(0);
+
+    // Mask flight price/confirmation for collaborators
+    const flightData = fl.data || [];
+    if (userIsOwner) {
+      setFlights(flightData);
+    } else {
+      setFlights(flightData.map((f) => ({ ...f, price: 0, confirmation: "" })));
+    }
+
+    if (userIsOwner && ownerResults.length === 3) {
+      const [pk, est, tb] = ownerResults;
+      setPacking(pk.data || []);
+      setEstimates(est.data || []);
+      if (tb.data && tb.data.length > 0) setTripBudget(parseFloat(tb.data[0].total_budget) || 0);
+      else setTripBudget(0);
+    } else {
+      setPacking([]);
+      setEstimates([]);
+      setTripBudget(0);
+    }
+
     setLoading(false);
-  }, [tripId]);
+  }, [tripId, session.user.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // If collaborator is on a tab they shouldn't see, kick them back to home
+  useEffect(() => {
+    if (!isOwner && (tab === "packing" || tab === "budget")) setTab("home");
+  }, [isOwner, tab]);
 
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
@@ -326,37 +176,29 @@ function TripDetail({ tripId, onBack }) {
   const saveDay = async () => {
     if (!form.date) return;
     const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: tripId };
-    if (editItem) {
-      await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
-    } else {
-      await supabase.from("itinerary_days").insert(payload);
-    }
+    if (editItem) await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
+    else await supabase.from("itinerary_days").insert(payload);
     closeModal(); load();
   };
 
   const saveItem = async () => {
     if (!form.title || !activeDay) return;
     const payload = {
-      day_id: activeDay,
-      trip_id: tripId,
+      day_id: activeDay, trip_id: tripId,
       category: form.category || ACTIVITY_CATEGORIES[0],
-      title: form.title,
-      details: form.details || "",
-      time: form.time || "",
+      title: form.title, details: form.details || "", time: form.time || "",
       confirmed: form.confirmed === "true" || form.confirmed === true,
       price: parseFloat(form.price) || 0,
       is_booked: form.is_booked === "true" || form.is_booked === true,
     };
-    if (editItem) {
-      await supabase.from("itinerary_items").update(payload).eq("id", editItem.id);
-    } else {
-      await supabase.from("itinerary_items").insert(payload);
-    }
+    if (editItem) await supabase.from("itinerary_items").update(payload).eq("id", editItem.id);
+    else await supabase.from("itinerary_items").insert(payload);
     closeModal(); load();
   };
 
   const saveFlight = async () => {
     if (!form.flight_number) return;
+    // Collaborators can't set price or confirmation — preserve existing values
     const payload = {
       trip_id: tripId,
       flight_number: form.flight_number,
@@ -365,14 +207,13 @@ function TripDetail({ tripId, onBack }) {
       departure: form.departure || "",
       arrival: form.arrival || "",
       airline: form.airline || "",
-      confirmation: form.confirmation || "",
-      price: parseFloat(form.price) || 0,
     };
-    if (editItem) {
-      await supabase.from("flights").update(payload).eq("id", editItem.id);
-    } else {
-      await supabase.from("flights").insert(payload);
+    if (isOwner) {
+      payload.confirmation = form.confirmation || "";
+      payload.price = parseFloat(form.price) || 0;
     }
+    if (editItem) await supabase.from("flights").update(payload).eq("id", editItem.id);
+    else await supabase.from("flights").insert(payload);
     closeModal(); load();
   };
 
@@ -380,48 +221,38 @@ function TripDetail({ tripId, onBack }) {
     if (!form.name) return;
     const payload = {
       trip_id: tripId,
-      name: form.name,
-      location: form.location || "",
-      check_in: form.check_in || "",
-      check_out: form.check_out || "",
-      confirmation: form.confirmation || "",
+      name: form.name, location: form.location || "",
+      check_in: form.check_in || "", check_out: form.check_out || "",
       notes: form.notes || "",
-      price_per_night: parseFloat(form.price_per_night) || 0,
     };
-    if (editItem) {
-      await supabase.from("hotels").update(payload).eq("id", editItem.id);
-    } else {
-      await supabase.from("hotels").insert(payload);
+    if (isOwner) {
+      payload.confirmation = form.confirmation || "";
+      payload.price_per_night = parseFloat(form.price_per_night) || 0;
     }
+    if (editItem) await supabase.from("hotels").update(payload).eq("id", editItem.id);
+    else await supabase.from("hotels").insert(payload);
     closeModal(); load();
   };
 
   const savePacking = async () => {
     if (!form.item) return;
     const payload = { trip_id: tripId, item: form.item, category: form.category || "Misc" };
-    if (editItem) {
-      await supabase.from("packing_items").update(payload).eq("id", editItem.id);
-    } else {
-      await supabase.from("packing_items").insert({ ...payload, packed: false });
-    }
+    if (editItem) await supabase.from("packing_items").update(payload).eq("id", editItem.id);
+    else await supabase.from("packing_items").insert({ ...payload, packed: false });
     closeModal(); load();
   };
 
   const saveEstimate = async () => {
     if (!form.label) return;
     const payload = {
-      trip_id: tripId,
-      label: form.label,
+      trip_id: tripId, label: form.label,
       daily_amount: parseFloat(form.daily_amount) || 0,
       days: parseInt(form.days) || 1,
       category: form.category || ESTIMATE_CATEGORIES[0],
       sort_order: estimates.length,
     };
-    if (editItem) {
-      await supabase.from("budget_estimates").update(payload).eq("id", editItem.id);
-    } else {
-      await supabase.from("budget_estimates").insert(payload);
-    }
+    if (editItem) await supabase.from("budget_estimates").update(payload).eq("id", editItem.id);
+    else await supabase.from("budget_estimates").insert(payload);
     closeModal(); load();
   };
 
@@ -474,21 +305,42 @@ function TripDetail({ tripId, onBack }) {
   const tripDates = trip ? formatTripDates(trip.start_date, trip.end_date) : "";
   const tripStart = trip?.start_date;
 
+  const tabs = [
+    { id: "home", l: "🏠 HOME" },
+    { id: "itinerary", l: "📅 ITINERARY" },
+    { id: "flights", l: "✈️ FLIGHTS" },
+    { id: "hotels", l: "🏨 HOTELS" },
+  ];
+  if (isOwner) {
+    tabs.push({ id: "packing", l: "🎒 PACKING" });
+    tabs.push({ id: "budget", l: "💰 BUDGET" });
+  }
+
+  const ownerStats = [
+    { v: daysUntil(tripStart), l: "DAYS TO GO" },
+    { v: days.length, l: "DAYS PLANNED" },
+    { v: `${packedCount}/${packing.length}`, l: "PACKED" },
+    { v: fmt(confirmedTotal), l: "CONFIRMED" },
+  ];
+  const collabStats = [
+    { v: daysUntil(tripStart), l: "DAYS TO GO" },
+    { v: days.length, l: "DAYS PLANNED" },
+    { v: items.length, l: "ACTIVITIES" },
+    { v: hotels.length, l: "STAYS" },
+  ];
+  const displayStats = isOwner ? ownerStats : collabStats;
+
   return (
     <div style={S.wrap}>
       <div style={S.hero}>
         <button style={S.backBtn} onClick={onBack}>← My Trips</button>
         <p style={{ ...S.heroTitle, marginBottom: 4 }}>{tripName} 🌴</p>
         <div style={S.heroSub}>{tripDates} ✈️</div>
+        {!isOwner && <div style={S.collabBadge}>👥 SHARED WITH YOU</div>}
         <div style={S.statRow}>
-          {[
-            { v: daysUntil(tripStart), l: "DAYS TO GO" },
-            { v: days.length, l: "DAYS PLANNED" },
-            { v: `${packedCount}/${packing.length}`, l: "PACKED" },
-            { v: fmt(confirmedTotal), l: "CONFIRMED" },
-          ].map((s, i) => (
+          {displayStats.map((s, i) => (
             <div key={i} style={S.stat}>
-              <div style={{ ...S.statNum, fontSize: i === 3 ? 14 : 24 }}>{s.v}</div>
+              <div style={{ ...S.statNum, fontSize: (isOwner && i === 3) ? 14 : 24 }}>{s.v}</div>
               <div style={S.statLabel}>{s.l}</div>
             </div>
           ))}
@@ -499,52 +351,43 @@ function TripDetail({ tripId, onBack }) {
       </div>
 
       <div style={S.nav}>
-        {[
-          { id: "home", l: "🏠 HOME" },
-          { id: "itinerary", l: "📅 ITINERARY" },
-          { id: "flights", l: "✈️ FLIGHTS" },
-          { id: "hotels", l: "🏨 HOTELS" },
-          { id: "packing", l: "🎒 PACKING" },
-          { id: "budget", l: "💰 BUDGET" },
-        ].map((t) => (
-          <button key={t.id} style={S.nb(tab === t.id)} onClick={() => setTab(t.id)}>
-            {t.l}
-          </button>
+        {tabs.map((t) => (
+          <button key={t.id} style={S.nb(tab === t.id)} onClick={() => setTab(t.id)}>{t.l}</button>
         ))}
       </div>
 
       {tab === "home" && (
         <div style={S.sec}>
-          <div style={{ ...S.card, background: "linear-gradient(135deg, #e8f5e9, #f0f9f9)" }}>
-            <div style={S.label}>TRIP BUDGET SNAPSHOT</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>BUDGET</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#1a2e35" }}>{fmt(tripBudget)}</div>
+          {isOwner && (
+            <div style={{ ...S.card, background: "linear-gradient(135deg, #e8f5e9, #f0f9f9)" }}>
+              <div style={S.label}>TRIP BUDGET SNAPSHOT</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
+                  <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>BUDGET</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#1a2e35" }}>{fmt(tripBudget)}</div>
+                </div>
+                <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
+                  <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>PROJECTED</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#e76f51" }}>{fmt(grandTotal)}</div>
+                </div>
+                <div style={{ flex: 1, textAlign: "center", background: remaining >= 0 ? "#e8f5e9" : "#fdecea", borderRadius: 10, padding: "10px 6px" }}>
+                  <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>LEFT</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: remaining >= 0 ? "#2e7d32" : "#c62828" }}>{fmt(remaining)}</div>
+                </div>
               </div>
-              <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>PROJECTED</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#e76f51" }}>{fmt(grandTotal)}</div>
-              </div>
-              <div style={{ flex: 1, textAlign: "center", background: remaining >= 0 ? "#e8f5e9" : "#fdecea", borderRadius: 10, padding: "10px 6px" }}>
-                <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>LEFT</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: remaining >= 0 ? "#2e7d32" : "#c62828" }}>{fmt(remaining)}</div>
-              </div>
+              <button style={{ ...S.btnSm("#0a9396"), width: "100%", padding: "8px" }} onClick={() => setTab("budget")}>
+                View Full Budget →
+              </button>
             </div>
-            <button style={{ ...S.btnSm("#0a9396"), width: "100%", padding: "8px" }} onClick={() => setTab("budget")}>
-              View Full Budget →
-            </button>
-          </div>
+          )}
 
           <div style={S.card}>
             <div style={S.label}>QUICK STATS</div>
             {[
-              { l: "Flights booked", v: flights.length },
+              { l: "Flights", v: flights.length },
               { l: "Hotels/stays", v: hotels.length },
               { l: "Activities planned", v: items.length },
-              { l: "Flights cost", v: fmt(flightsTotal) },
-              { l: "Lodging cost", v: fmt(hotelsTotal) },
-              { l: "Booked activities", v: fmt(bookedActivities) },
+              { l: "Days planned", v: days.length },
             ].map((s) => (
               <div key={s.l} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid #f0f9f9" }}>
                 <span style={{ fontSize: 13, color: "#546e7a" }}>{s.l}</span>
@@ -561,12 +404,12 @@ function TripDetail({ tripId, onBack }) {
           <div style={{ marginTop: 12 }}>
             {days.length === 0 && (
               <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic", padding: 30 }}>
-                No days planned yet. Tap "+ Add Day" to start your itinerary.
+                No days planned yet. Tap "+ Add Day" to start.
               </div>
             )}
             {days.map((day) => {
               const dayItems = items.filter((i) => i.day_id === day.id);
-              const daySpend = dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
+              const daySpend = isOwner ? dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0) : 0;
               return (
                 <div key={day.id} style={{ ...S.card, marginBottom: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -584,30 +427,13 @@ function TripDetail({ tripId, onBack }) {
                   </div>
                   {day.notes && <div style={{ fontSize: 12, color: "#78909c", marginBottom: 10, fontStyle: "italic" }}>{day.notes}</div>}
                   {dayItems.map((item) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        background: item.confirmed ? "#f0fdf4" : "#fafafa",
-                        border: `1px solid ${item.confirmed ? "#bbf7d0" : "#e8f0f2"}`,
-                        borderRadius: 10,
-                        padding: "10px 12px",
-                        marginBottom: 8,
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 8,
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.confirmed}
-                        onChange={() => toggleConfirmed(item.id, item.confirmed)}
-                        style={{ marginTop: 3, accentColor: "#0a9396" }}
-                      />
+                    <div key={item.id} style={{ background: item.confirmed ? "#f0fdf4" : "#fafafa", border: `1px solid ${item.confirmed ? "#bbf7d0" : "#e8f0f2"}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      <input type="checkbox" checked={item.confirmed} onChange={() => toggleConfirmed(item.id, item.confirmed)} style={{ marginTop: 3, accentColor: "#0a9396" }} />
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <span style={S.chip(CAT_COLORS[item.category] || "#90a4ae")}>{item.category}</span>
                           <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{item.title}</span>
-                          {(parseFloat(item.price) > 0) && (
+                          {isOwner && (parseFloat(item.price) > 0) && (
                             <span style={{ ...S.priceTag, fontSize: 11 }}>
                               {item.is_booked ? "✅" : "~"} {fmt(item.price)}
                             </span>
@@ -622,10 +448,7 @@ function TripDetail({ tripId, onBack }) {
                       </div>
                     </div>
                   ))}
-                  <button
-                    style={{ ...S.btnSm("#0a9396"), marginTop: 4, width: "100%", padding: "8px" }}
-                    onClick={() => { setActiveDay(day.id); setForm({ category: ACTIVITY_CATEGORIES[0] }); setShowModal("item"); }}
-                  >
+                  <button style={{ ...S.btnSm("#0a9396"), marginTop: 4, width: "100%", padding: "8px" }} onClick={() => { setActiveDay(day.id); setForm({ category: ACTIVITY_CATEGORIES[0] }); setShowModal("item"); }}>
                     + Add Activity
                   </button>
                 </div>
@@ -637,7 +460,7 @@ function TripDetail({ tripId, onBack }) {
 
       {tab === "flights" && (
         <div style={S.sec}>
-          {flightsTotal > 0 && (
+          {isOwner && flightsTotal > 0 && (
             <div style={{ ...S.totalBanner("linear-gradient(135deg,#e3f2fd,#bbdefb)", "#1a2e35"), marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#1565c0", marginBottom: 4 }}>TOTAL FLIGHTS COST</div>
               <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#1565c0" }}>{fmt(flightsTotal)}</div>
@@ -650,16 +473,14 @@ function TripDetail({ tripId, onBack }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
                     <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>✈️ {fl.flight_number}</div>
-                    <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>
-                      {fl.from_location} → {fl.to_location}
-                    </div>
+                    <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>{fl.from_location} → {fl.to_location}</div>
                     {fl.airline && <div style={{ fontSize: 12, color: "#78909c" }}>{fl.airline}</div>}
                     {fl.departure && <div style={{ fontSize: 12, color: "#78909c" }}>Dep: {fl.departure}</div>}
                     {fl.arrival && <div style={{ fontSize: 12, color: "#78909c" }}>Arr: {fl.arrival}</div>}
-                    {fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
+                    {isOwner && fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                    {parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
+                    {isOwner && parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
                     <div style={{ display: "flex", gap: 4 }}>
                       <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("flight", fl)}>✏️</button>
                       <button style={S.del} onClick={() => deleteRecord("flights", fl.id)}>×</button>
@@ -674,11 +495,10 @@ function TripDetail({ tripId, onBack }) {
 
       {tab === "hotels" && (
         <div style={S.sec}>
-          {hotelsTotal > 0 && (
+          {isOwner && hotelsTotal > 0 && (
             <div style={{ ...S.totalBanner("linear-gradient(135deg,#f3e5f5,#e1bee7)", "#1a2e35"), marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#6a1b9a", marginBottom: 4 }}>TOTAL LODGING COST</div>
               <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#6a1b9a" }}>{fmt(hotelsTotal)}</div>
-              <div style={{ fontSize: 11, color: "#9c4dcc", marginTop: 4 }}>Calculated from nightly rate × nights</div>
             </div>
           )}
           <button style={S.btn()} onClick={() => { setForm({}); setShowModal("hotel"); }}>+ Add Hotel / Airbnb</button>
@@ -696,13 +516,13 @@ function TripDetail({ tripId, onBack }) {
                         {h.check_in} → {h.check_out}
                         {nights > 0 && <span style={{ fontWeight: 700, color: "#0a9396" }}> ({nights} nights)</span>}
                       </div>
-                      {parseFloat(h.price_per_night) > 0 && (
+                      {isOwner && parseFloat(h.price_per_night) > 0 && (
                         <div style={{ fontSize: 12, color: "#78909c", marginTop: 2 }}>
                           {fmt(h.price_per_night)}/night
                           {total > 0 && <span style={{ fontWeight: 800, color: "#2e7d32" }}> = {fmt(total)} total</span>}
                         </div>
                       )}
-                      {h.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {h.confirmation}</div>}
+                      {isOwner && h.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {h.confirmation}</div>}
                       {h.notes && <div style={{ fontSize: 12, color: "#78909c", marginTop: 4, fontStyle: "italic" }}>{h.notes}</div>}
                     </div>
                     <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
@@ -717,7 +537,7 @@ function TripDetail({ tripId, onBack }) {
         </div>
       )}
 
-      {tab === "packing" && (
+      {isOwner && tab === "packing" && (
         <div style={S.sec}>
           <div style={{ ...S.card, background: "linear-gradient(135deg,#e0f7fa,#f0f9f9)", marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -730,11 +550,7 @@ function TripDetail({ tripId, onBack }) {
           </div>
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, scrollbarWidth: "none", marginBottom: 8 }}>
             {["All", ...PACKING_CATEGORIES].map((cat) => (
-              <button
-                key={cat}
-                style={{ ...S.btnSm(packFilter === cat ? "#0a9396" : "#b2dfdb"), color: packFilter === cat ? "#fff" : "#005f73", flex: "0 0 auto" }}
-                onClick={() => setPackFilter(cat)}
-              >
+              <button key={cat} style={{ ...S.btnSm(packFilter === cat ? "#0a9396" : "#b2dfdb"), color: packFilter === cat ? "#fff" : "#005f73", flex: "0 0 auto" }} onClick={() => setPackFilter(cat)}>
                 {cat}
               </button>
             ))}
@@ -748,19 +564,7 @@ function TripDetail({ tripId, onBack }) {
                 <div key={cat} style={{ marginBottom: 16 }}>
                   <div style={S.label}>{cat.toUpperCase()}</div>
                   {catItems.map((p) => (
-                    <div
-                      key={p.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "10px 14px",
-                        background: p.packed ? "#f0fdf4" : "#fff",
-                        borderRadius: 10,
-                        marginBottom: 6,
-                        border: `1px solid ${p.packed ? "#bbf7d0" : "#e0f2f1"}`,
-                      }}
-                    >
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: p.packed ? "#f0fdf4" : "#fff", borderRadius: 10, marginBottom: 6, border: `1px solid ${p.packed ? "#bbf7d0" : "#e0f2f1"}` }}>
                       <input type="checkbox" checked={p.packed} onChange={() => togglePacked(p.id, p.packed)} style={{ accentColor: "#0a9396" }} />
                       <span style={{ flex: 1, fontSize: 14, color: p.packed ? "#78909c" : "#1a2e35", textDecoration: p.packed ? "line-through" : "none" }}>{p.item}</span>
                       <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("packing", p)}>✏️</button>
@@ -774,20 +578,13 @@ function TripDetail({ tripId, onBack }) {
         </div>
       )}
 
-      {tab === "budget" && (
+      {isOwner && tab === "budget" && (
         <div style={S.sec}>
           <div style={S.card}>
             <div style={S.label}>TOTAL TRIP BUDGET</div>
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-              <input
-                type="number"
-                key={tripBudget}
-                defaultValue={tripBudget || ""}
-                placeholder="Enter your total budget"
-                onBlur={(e) => saveTripBudget(e.target.value)}
-                style={{ ...S.priceInput, paddingLeft: 24 }}
-              />
+              <input type="number" key={tripBudget} defaultValue={tripBudget || ""} placeholder="Enter your total budget" onBlur={(e) => saveTripBudget(e.target.value)} style={{ ...S.priceInput, paddingLeft: 24 }} />
             </div>
           </div>
 
@@ -821,7 +618,7 @@ function TripDetail({ tripId, onBack }) {
               </div>
             ))}
             {flights.filter((f) => parseFloat(f.price) > 0).length === 0 && (
-              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No prices added yet — edit flights to add costs</div>
+              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No prices added yet</div>
             )}
           </div>
 
@@ -855,7 +652,7 @@ function TripDetail({ tripId, onBack }) {
               </div>
             ))}
             {items.filter((i) => i.is_booked && parseFloat(i.price) > 0).length === 0 && (
-              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>Mark itinerary items as "Booked" to track here</div>
+              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>Mark itinerary items as "Booked"</div>
             )}
           </div>
 
@@ -894,7 +691,7 @@ function TripDetail({ tripId, onBack }) {
 
           {estimates.length === 0 && (
             <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic" }}>
-              Add daily estimates for things like food, gas, activities you haven't booked yet
+              Add daily estimates for things like food, gas, activities you haven't booked
             </div>
           )}
 
@@ -923,6 +720,7 @@ function TripDetail({ tripId, onBack }) {
         </div>
       )}
 
+      {/* MODALS */}
       {showModal === "day" && (
         <Modal onClose={closeModal}>
           <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT DAY" : "ADD DAY"}</div>
@@ -943,37 +741,21 @@ function TripDetail({ tripId, onBack }) {
           <input style={S.input} placeholder="Title *" value={form.title || ""} onChange={f("title")} />
           <input style={S.input} placeholder="Details / notes" value={form.details || ""} onChange={f("details")} />
           <input style={S.input} type="time" value={form.time || ""} onChange={f("time")} />
-          <div style={S.label}>PRICE</div>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              value={form.price || ""}
-              onChange={f("price")}
-              style={{ ...S.priceInput, paddingLeft: 24 }}
-            />
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-            <input
-              type="checkbox"
-              id="is_booked"
-              checked={form.is_booked === true || form.is_booked === "true"}
-              onChange={(e) => setForm((p) => ({ ...p, is_booked: e.target.checked }))}
-              style={{ accentColor: "#0a9396" }}
-            />
-            <label htmlFor="is_booked" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Booked / confirmed price (not an estimate)</label>
-          </div>
+          {isOwner && (
+            <>
+              <div style={S.label}>PRICE</div>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+                <input type="number" min="0" step="0.01" placeholder="0" value={form.price || ""} onChange={f("price")} style={{ ...S.priceInput, paddingLeft: 24 }} />
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                <input type="checkbox" id="is_booked" checked={form.is_booked === true || form.is_booked === "true"} onChange={(e) => setForm((p) => ({ ...p, is_booked: e.target.checked }))} style={{ accentColor: "#0a9396" }} />
+                <label htmlFor="is_booked" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Booked / confirmed price</label>
+              </div>
+            </>
+          )}
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
-            <input
-              type="checkbox"
-              id="confirmed"
-              checked={form.confirmed === true || form.confirmed === "true"}
-              onChange={(e) => setForm((p) => ({ ...p, confirmed: e.target.checked }))}
-              style={{ accentColor: "#0a9396" }}
-            />
+            <input type="checkbox" id="confirmed" checked={form.confirmed === true || form.confirmed === "true"} onChange={(e) => setForm((p) => ({ ...p, confirmed: e.target.checked }))} style={{ accentColor: "#0a9396" }} />
             <label htmlFor="confirmed" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Mark as done / completed</label>
           </div>
           <button style={S.btn()} onClick={saveItem}>{editItem ? "Save Changes" : "Add Activity"}</button>
@@ -990,20 +772,16 @@ function TripDetail({ tripId, onBack }) {
           <input style={S.input} placeholder="To (e.g. NAN - Nadi)" value={form.to_location || ""} onChange={f("to_location")} />
           <input style={S.input} placeholder="Departure (date & time)" value={form.departure || ""} onChange={f("departure")} />
           <input style={S.input} placeholder="Arrival (date & time)" value={form.arrival || ""} onChange={f("arrival")} />
-          <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
-          <div style={S.label}>TICKET PRICE (total for all travelers)</div>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              value={form.price || ""}
-              onChange={f("price")}
-              style={{ ...S.priceInput, paddingLeft: 24 }}
-            />
-          </div>
+          {isOwner && (
+            <>
+              <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
+              <div style={S.label}>TICKET PRICE</div>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+                <input type="number" min="0" step="0.01" placeholder="0" value={form.price || ""} onChange={f("price")} style={{ ...S.priceInput, paddingLeft: 24 }} />
+              </div>
+            </>
+          )}
           <button style={S.btn()} onClick={saveFlight}>{editItem ? "Save Changes" : "Add Flight"}</button>
           <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
         </Modal>
@@ -1023,25 +801,21 @@ function TripDetail({ tripId, onBack }) {
               {nightsBetween(form.check_in, form.check_out)} nights
             </div>
           )}
-          <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
           <input style={S.input} placeholder="Notes" value={form.notes || ""} onChange={f("notes")} />
-          <div style={S.label}>PRICE PER NIGHT</div>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0"
-              value={form.price_per_night || ""}
-              onChange={f("price_per_night")}
-              style={{ ...S.priceInput, paddingLeft: 24 }}
-            />
-          </div>
-          {form.price_per_night && form.check_in && form.check_out && (
-            <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>
-              Total: {fmt(nightsBetween(form.check_in, form.check_out) * parseFloat(form.price_per_night))}
-            </div>
+          {isOwner && (
+            <>
+              <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
+              <div style={S.label}>PRICE PER NIGHT</div>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
+                <input type="number" min="0" step="0.01" placeholder="0" value={form.price_per_night || ""} onChange={f("price_per_night")} style={{ ...S.priceInput, paddingLeft: 24 }} />
+              </div>
+              {form.price_per_night && form.check_in && form.check_out && (
+                <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>
+                  Total: {fmt(nightsBetween(form.check_in, form.check_out) * parseFloat(form.price_per_night))}
+                </div>
+              )}
+            </>
           )}
           <button style={S.btn()} onClick={saveHotel}>{editItem ? "Save Changes" : "Add Hotel"}</button>
           <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
@@ -1070,25 +844,10 @@ function TripDetail({ tripId, onBack }) {
           <div style={S.label}>ESTIMATED AMOUNT PER DAY</div>
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              placeholder="0"
-              value={form.daily_amount || ""}
-              onChange={f("daily_amount")}
-              style={{ ...S.priceInput, paddingLeft: 24 }}
-            />
+            <input type="number" min="0" step="1" placeholder="0" value={form.daily_amount || ""} onChange={f("daily_amount")} style={{ ...S.priceInput, paddingLeft: 24 }} />
           </div>
           <div style={S.label}>NUMBER OF DAYS</div>
-          <input
-            type="number"
-            min="1"
-            placeholder="1"
-            value={form.days || ""}
-            onChange={f("days")}
-            style={S.input}
-          />
+          <input type="number" min="1" placeholder="1" value={form.days || ""} onChange={f("days")} style={S.input} />
           {form.daily_amount && form.days && (
             <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>
               Total for this line: {fmt(parseFloat(form.daily_amount) * parseInt(form.days))}
@@ -1102,7 +861,6 @@ function TripDetail({ tripId, onBack }) {
   );
 }
 
-// ─── ROOT COMPONENT ──────────────────────────────────────────────────────────
 export default function TripPlanner() {
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -1137,5 +895,5 @@ export default function TripPlanner() {
     return <TripsList session={session} onSelectTrip={setCurrentTripId} />;
   }
 
-  return <TripDetail tripId={currentTripId} onBack={() => setCurrentTripId(null)} />;
+  return <TripDetail tripId={currentTripId} session={session} onBack={() => setCurrentTripId(null)} />;
 }
