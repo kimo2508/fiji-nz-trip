@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase";
 import Login from "./Login";
 import TripsList from "./TripsList";
@@ -14,7 +14,6 @@ const CAT_COLORS = {
 };
 const ESTIMATE_CATEGORIES = ["Food & Dining", "Transportation", "Activities", "Shopping", "Groceries", "Misc"];
 
-// Stable colors for user badges — hash email to index into a small palette
 const BADGE_COLORS = [
   { bg: "#e0f2f1", fg: "#00695c" },
   { bg: "#ffe0b2", fg: "#e65100" },
@@ -65,6 +64,8 @@ const S = {
   hero: { background: "linear-gradient(135deg, #0a9396 0%, #005f73 100%)", padding: "28px 20px 48px", position: "relative", overflow: "hidden" },
   heroTitle: { fontFamily: "'Playfair Display', serif", fontSize: 26, color: "#fff", margin: 0, letterSpacing: 0.5 },
   heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600 },
+  liveIndicator: { position: "absolute", top: 16, left: 16, display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1 },
+  liveDot: (live) => ({ width: 7, height: 7, borderRadius: "50%", background: live ? "#4ade80" : "#94a3b8", boxShadow: live ? "0 0 6px #4ade80" : "none" }),
   backBtn: { background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 },
   accessBadge: (bg, fg) => ({ display: "inline-block", background: bg, color: fg, padding: "3px 10px", borderRadius: 10, fontSize: 10, fontWeight: 700, letterSpacing: 1, marginTop: 6 }),
   statRow: { marginTop: 16, display: "flex", gap: 10 },
@@ -99,7 +100,6 @@ function Modal({ onClose, children }) {
   );
 }
 
-// Attribution badge — shows "added by X" with stable per-user color
 function AddedBy({ userId, userMap }) {
   if (!userId || !userMap) return null;
   const name = userMap[userId] || "Someone";
@@ -110,8 +110,8 @@ function AddedBy({ userId, userMap }) {
 function TripDetail({ tripId, session, onBack }) {
   const [tab, setTab] = useState("home");
   const [trip, setTrip] = useState(null);
-  const [accessLevel, setAccessLevel] = useState("editor"); // "owner" | "co-owner" | "editor"
-  const [userMap, setUserMap] = useState({}); // user_id → display name
+  const [accessLevel, setAccessLevel] = useState("editor");
+  const [userMap, setUserMap] = useState({});
   const [days, setDays] = useState([]);
   const [items, setItems] = useState([]);
   const [flights, setFlights] = useState([]);
@@ -120,6 +120,7 @@ function TripDetail({ tripId, session, onBack }) {
   const [estimates, setEstimates] = useState([]);
   const [tripBudget, setTripBudget] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [liveConnected, setLiveConnected] = useState(false);
   const [activeDay, setActiveDay] = useState(null);
   const [showModal, setShowModal] = useState(null);
   const [form, setForm] = useState({});
@@ -131,7 +132,13 @@ function TripDetail({ tripId, session, onBack }) {
 
   const currentUserId = session.user.id;
 
-  // Build display name for a user — prefer Google name from auth, fall back to email local part
+  // Permission helper: can the current user edit/delete this specific row?
+  const canModify = useCallback((row) => {
+    if (!row) return false;
+    if (hasFullAccess) return true; // owners and co-owners can modify anything
+    return row.created_by === currentUserId; // editors can only modify their own
+  }, [hasFullAccess, currentUserId]);
+
   const displayNameFor = (user) => {
     if (!user) return null;
     const meta = user.raw_user_meta_data || user.user_metadata || {};
@@ -139,13 +146,11 @@ function TripDetail({ tripId, session, onBack }) {
   };
 
   const load = useCallback(async () => {
-    setLoading(true);
     const tripResp = await supabase.from("trips").select("*").eq("id", tripId).maybeSingle();
     if (tripResp.error) console.error("Trip load error:", tripResp.error);
     const loadedTrip = tripResp.data || null;
     setTrip(loadedTrip);
 
-    // Determine access level
     let level = "editor";
     if (loadedTrip?.owner_id === currentUserId) {
       level = "owner";
@@ -193,7 +198,6 @@ function TripDetail({ tripId, session, onBack }) {
       setPacking([]); setEstimates([]); setTripBudget(0);
     }
 
-    // Build userMap: collect all unique user_ids from created_by fields + owner + collaborators
     const ids = new Set();
     if (loadedTrip?.owner_id) ids.add(loadedTrip.owner_id);
     (d.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
@@ -201,7 +205,6 @@ function TripDetail({ tripId, session, onBack }) {
     (fl.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
     (ho.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
 
-    // Also include accepted collaborators (they show up in trip_collaborators with user_id populated)
     const { data: collabRows } = await supabase
       .from("trip_collaborators")
       .select("user_id, user_email")
@@ -214,10 +217,6 @@ function TripDetail({ tripId, session, onBack }) {
       }
     });
 
-    // We can't query auth.users directly from the client. Build the map from what we know:
-    //  - The current user (self)
-    //  - Collaborator emails from trip_collaborators
-    //  - Owner: use email from trip_collaborators if they're listed there, otherwise "Trip Owner"
     const map = {};
     ids.forEach((id) => {
       if (id === currentUserId) {
@@ -235,7 +234,45 @@ function TripDetail({ tripId, session, onBack }) {
     setLoading(false);
   }, [tripId, currentUserId, session.user]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    setLoading(true);
+    load();
+  }, [load]);
+
+  // ── REALTIME SUBSCRIPTION ──────────────────────────────────────────────────
+  // Debounce rapid successive changes into one reload
+  const reloadTimer = useRef(null);
+  const debouncedLoad = useCallback(() => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current);
+    reloadTimer.current = setTimeout(() => { load(); }, 300);
+  }, [load]);
+
+  useEffect(() => {
+    // Subscribe to all changes on shared tables for this trip
+    const tables = [
+      "itinerary_days", "itinerary_items", "flights", "hotels",
+      "packing_items", "budget_estimates", "trip_budget", "trip_collaborators"
+    ];
+
+    const channel = supabase.channel(`trip-${tripId}`);
+
+    tables.forEach((table) => {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table, filter: `trip_id=eq.${tripId}` },
+        () => debouncedLoad()
+      );
+    });
+
+    channel.subscribe((status) => {
+      setLiveConnected(status === "SUBSCRIBED");
+    });
+
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      supabase.removeChannel(channel);
+    };
+  }, [tripId, debouncedLoad]);
 
   useEffect(() => {
     if (!hasFullAccess && (tab === "packing" || tab === "budget")) setTab("home");
@@ -261,7 +298,7 @@ function TripDetail({ tripId, session, onBack }) {
     const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: tripId };
     if (editItem) await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
     else await supabase.from("itinerary_days").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
+    closeModal();
   };
 
   const saveItem = async () => {
@@ -276,7 +313,7 @@ function TripDetail({ tripId, session, onBack }) {
     };
     if (editItem) await supabase.from("itinerary_items").update(payload).eq("id", editItem.id);
     else await supabase.from("itinerary_items").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
+    closeModal();
   };
 
   const saveFlight = async () => {
@@ -296,7 +333,7 @@ function TripDetail({ tripId, session, onBack }) {
     }
     if (editItem) await supabase.from("flights").update(payload).eq("id", editItem.id);
     else await supabase.from("flights").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
+    closeModal();
   };
 
   const saveHotel = async () => {
@@ -313,7 +350,7 @@ function TripDetail({ tripId, session, onBack }) {
     }
     if (editItem) await supabase.from("hotels").update(payload).eq("id", editItem.id);
     else await supabase.from("hotels").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
+    closeModal();
   };
 
   const savePacking = async () => {
@@ -321,7 +358,7 @@ function TripDetail({ tripId, session, onBack }) {
     const payload = { trip_id: tripId, item: form.item, category: form.category || "Misc" };
     if (editItem) await supabase.from("packing_items").update(payload).eq("id", editItem.id);
     else await supabase.from("packing_items").insert({ ...payload, packed: false });
-    closeModal(); load();
+    closeModal();
   };
 
   const saveEstimate = async () => {
@@ -335,7 +372,7 @@ function TripDetail({ tripId, session, onBack }) {
     };
     if (editItem) await supabase.from("budget_estimates").update(payload).eq("id", editItem.id);
     else await supabase.from("budget_estimates").insert(payload);
-    closeModal(); load();
+    closeModal();
   };
 
   const saveTripBudget = async (val) => {
@@ -351,17 +388,14 @@ function TripDetail({ tripId, session, onBack }) {
 
   const deleteRecord = async (table, id) => {
     await supabase.from(table).delete().eq("id", id);
-    load();
   };
 
   const togglePacked = async (id, packed) => {
     await supabase.from("packing_items").update({ packed: !packed }).eq("id", id);
-    setPacking((p) => p.map((x) => (x.id === id ? { ...x, packed: !packed } : x)));
   };
 
   const toggleConfirmed = async (id, confirmed) => {
     await supabase.from("itinerary_items").update({ confirmed: !confirmed }).eq("id", id);
-    setItems((p) => p.map((x) => (x.id === id ? { ...x, confirmed: !confirmed } : x)));
   };
 
   const openEdit = (modal, record, extra = {}) => {
@@ -415,7 +449,11 @@ function TripDetail({ tripId, session, onBack }) {
   return (
     <div style={S.wrap}>
       <div style={S.hero}>
-        <button style={S.backBtn} onClick={onBack}>← My Trips</button>
+        <div style={S.liveIndicator}>
+          <div style={S.liveDot(liveConnected)} />
+          {liveConnected ? "LIVE" : "OFFLINE"}
+        </div>
+        <button style={{ ...S.backBtn, marginLeft: 70 }} onClick={onBack}>← My Trips</button>
         <p style={{ ...S.heroTitle, marginBottom: 4 }}>{tripName} 🌴</p>
         <div style={S.heroSub}>{tripDates} ✈️</div>
         {accessLevel === "co-owner" && (
@@ -497,6 +535,7 @@ function TripDetail({ tripId, session, onBack }) {
             {days.map((day) => {
               const dayItems = items.filter((i) => i.day_id === day.id);
               const daySpend = hasFullAccess ? dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0) : 0;
+              const canEditDay = canModify(day);
               return (
                 <div key={day.id} style={{ ...S.card, marginBottom: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
@@ -509,34 +548,43 @@ function TripDetail({ tripId, session, onBack }) {
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {daySpend > 0 && <span style={S.priceTag}>{fmt(daySpend)}</span>}
-                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("day", day)}>✏️</button>
-                      <button style={S.del} onClick={() => deleteRecord("itinerary_days", day.id)}>×</button>
+                      {canEditDay && <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("day", day)}>✏️</button>}
+                      {canEditDay && <button style={S.del} onClick={() => deleteRecord("itinerary_days", day.id)}>×</button>}
                     </div>
                   </div>
                   {day.notes && <div style={{ fontSize: 12, color: "#78909c", marginBottom: 10, fontStyle: "italic" }}>{day.notes}</div>}
-                  {dayItems.map((item) => (
-                    <div key={item.id} style={{ background: item.confirmed ? "#f0fdf4" : "#fafafa", border: `1px solid ${item.confirmed ? "#bbf7d0" : "#e8f0f2"}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <input type="checkbox" checked={item.confirmed} onChange={() => toggleConfirmed(item.id, item.confirmed)} style={{ marginTop: 3, accentColor: "#0a9396" }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <span style={S.chip(CAT_COLORS[item.category] || "#90a4ae")}>{item.category}</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{item.title}</span>
-                          {hasFullAccess && (parseFloat(item.price) > 0) && (
-                            <span style={{ ...S.priceTag, fontSize: 11 }}>
-                              {item.is_booked ? "✅" : "~"} {fmt(item.price)}
-                            </span>
-                          )}
+                  {dayItems.map((item) => {
+                    const canEditItem = canModify(item);
+                    return (
+                      <div key={item.id} style={{ background: item.confirmed ? "#f0fdf4" : "#fafafa", border: `1px solid ${item.confirmed ? "#bbf7d0" : "#e8f0f2"}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={item.confirmed}
+                          disabled={!canEditItem}
+                          onChange={() => canEditItem && toggleConfirmed(item.id, item.confirmed)}
+                          style={{ marginTop: 3, accentColor: "#0a9396", cursor: canEditItem ? "pointer" : "not-allowed" }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span style={S.chip(CAT_COLORS[item.category] || "#90a4ae")}>{item.category}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{item.title}</span>
+                            {hasFullAccess && (parseFloat(item.price) > 0) && (
+                              <span style={{ ...S.priceTag, fontSize: 11 }}>
+                                {item.is_booked ? "✅" : "~"} {fmt(item.price)}
+                              </span>
+                            )}
+                          </div>
+                          {item.time && <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>⏰ {item.time}</div>}
+                          {item.details && <div style={{ fontSize: 12, color: "#546e7a", marginTop: 3 }}>{item.details}</div>}
+                          <AddedBy userId={item.created_by} userMap={userMap} />
                         </div>
-                        {item.time && <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>⏰ {item.time}</div>}
-                        {item.details && <div style={{ fontSize: 12, color: "#546e7a", marginTop: 3 }}>{item.details}</div>}
-                        <AddedBy userId={item.created_by} userMap={userMap} />
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {canEditItem && <button style={S.btnSm("#94a3b8")} onClick={() => { setActiveDay(day.id); openEdit("item", item); }}>✏️</button>}
+                          {canEditItem && <button style={S.del} onClick={() => deleteRecord("itinerary_items", item.id)}>×</button>}
+                        </div>
                       </div>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <button style={S.btnSm("#94a3b8")} onClick={() => { setActiveDay(day.id); openEdit("item", item); }}>✏️</button>
-                        <button style={S.del} onClick={() => deleteRecord("itinerary_items", item.id)}>×</button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <button style={{ ...S.btnSm("#0a9396"), marginTop: 4, width: "100%", padding: "8px" }} onClick={() => { setActiveDay(day.id); setForm({ category: ACTIVITY_CATEGORIES[0] }); setShowModal("item"); }}>
                     + Add Activity
                   </button>
@@ -557,28 +605,31 @@ function TripDetail({ tripId, session, onBack }) {
           )}
           <button style={S.btn()} onClick={() => { setForm({}); setShowModal("flight"); }}>+ Add Flight</button>
           <div style={{ marginTop: 12 }}>
-            {flights.map((fl) => (
-              <div key={fl.id} style={S.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>✈️ {fl.flight_number}</div>
-                    <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>{fl.from_location} → {fl.to_location}</div>
-                    {fl.airline && <div style={{ fontSize: 12, color: "#78909c" }}>{fl.airline}</div>}
-                    {fl.departure && <div style={{ fontSize: 12, color: "#78909c" }}>Dep: {fl.departure}</div>}
-                    {fl.arrival && <div style={{ fontSize: 12, color: "#78909c" }}>Arr: {fl.arrival}</div>}
-                    {hasFullAccess && fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
-                    <AddedBy userId={fl.created_by} userMap={userMap} />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                    {hasFullAccess && parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("flight", fl)}>✏️</button>
-                      <button style={S.del} onClick={() => deleteRecord("flights", fl.id)}>×</button>
+            {flights.map((fl) => {
+              const canEditFlight = canModify(fl);
+              return (
+                <div key={fl.id} style={S.card}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>✈️ {fl.flight_number}</div>
+                      <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>{fl.from_location} → {fl.to_location}</div>
+                      {fl.airline && <div style={{ fontSize: 12, color: "#78909c" }}>{fl.airline}</div>}
+                      {fl.departure && <div style={{ fontSize: 12, color: "#78909c" }}>Dep: {fl.departure}</div>}
+                      {fl.arrival && <div style={{ fontSize: 12, color: "#78909c" }}>Arr: {fl.arrival}</div>}
+                      {hasFullAccess && fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
+                      <AddedBy userId={fl.created_by} userMap={userMap} />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                      {hasFullAccess && parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {canEditFlight && <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("flight", fl)}>✏️</button>}
+                        {canEditFlight && <button style={S.del} onClick={() => deleteRecord("flights", fl.id)}>×</button>}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -596,6 +647,7 @@ function TripDetail({ tripId, session, onBack }) {
             {hotels.map((h) => {
               const nights = nightsBetween(h.check_in, h.check_out);
               const total = nights * (parseFloat(h.price_per_night) || 0);
+              const canEditHotel = canModify(h);
               return (
                 <div key={h.id} style={S.card}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -617,8 +669,8 @@ function TripDetail({ tripId, session, onBack }) {
                       <AddedBy userId={h.created_by} userMap={userMap} />
                     </div>
                     <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("hotel", h)}>✏️</button>
-                      <button style={S.del} onClick={() => deleteRecord("hotels", h.id)}>×</button>
+                      {canEditHotel && <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("hotel", h)}>✏️</button>}
+                      {canEditHotel && <button style={S.del} onClick={() => deleteRecord("hotels", h.id)}>×</button>}
                     </div>
                   </div>
                 </div>
