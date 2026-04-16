@@ -304,7 +304,7 @@ export default function TripPlanner() {
     setLoading(true);
     const tid = CURRENT_TRIP_ID;
     const [tr, d, it, fl, ho, pk, est, tb] = await Promise.all([
-      supabase.from("trips").select("*").eq("id", tid).single(),
+      supabase.from("trips").select("*").eq("id", tid).maybeSingle(),
       supabase.from("itinerary_days").select("*").eq("trip_id", tid).order("date"),
       supabase.from("itinerary_items").select("*").eq("trip_id", tid).order("time"),
       supabase.from("flights").select("*").eq("trip_id", tid).order("departure"),
@@ -313,6 +313,7 @@ export default function TripPlanner() {
       supabase.from("budget_estimates").select("*").eq("trip_id", tid).order("sort_order"),
       supabase.from("trip_budget").select("*").eq("trip_id", tid).limit(1),
     ]);
+    if (tr.error) console.error("Trip load error:", tr.error);
     setTrip(tr.data || null);
     setDays(d.data || []);
     setItems(it.data || []);
@@ -837,12 +838,13 @@ export default function TripPlanner() {
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
               <input
-                type="number"
-                defaultValue={tripBudget || ""}
-                placeholder="Enter your total budget"
-                onBlur={(e) => saveTripBudget(e.target.value)}
-                style={{ ...S.priceInput, paddingLeft: 24 }}
-              />
+  type="number"
+  key={tripBudget}
+  defaultValue={tripBudget || ""}
+  placeholder="Enter your total budget"
+  onBlur={(e) => saveTripBudget(e.target.value)}
+  style={{ ...S.priceInput, paddingLeft: 24 }}
+/>
             </div>
           </div>
 
