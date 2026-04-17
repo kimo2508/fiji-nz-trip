@@ -5,24 +5,14 @@ import TripsList from "./TripsList";
 
 const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
 const ACTIVITY_CATEGORIES = ["🍽️ Restaurant", "🏄 Activity", "🗺️ Sightseeing", "🚗 Transport", "📝 Note"];
-const CAT_COLORS = {
-  "🍽️ Restaurant": "#f4a261",
-  "🏄 Activity": "#2a9d8f",
-  "🗺️ Sightseeing": "#e76f51",
-  "🚗 Transport": "#457b9d",
-  "📝 Note": "#a8dadc",
-};
+const CAT_COLORS = { "🍽️ Restaurant": "#f4a261", "🏄 Activity": "#2a9d8f", "🗺️ Sightseeing": "#e76f51", "🚗 Transport": "#457b9d", "📝 Note": "#a8dadc" };
 const ESTIMATE_CATEGORIES = ["Food & Dining", "Transportation", "Activities", "Shopping", "Groceries", "Misc"];
 
 const BADGE_COLORS = [
-  { bg: "#e0f2f1", fg: "#00695c" },
-  { bg: "#ffe0b2", fg: "#e65100" },
-  { bg: "#e1bee7", fg: "#6a1b9a" },
-  { bg: "#c5cae9", fg: "#283593" },
-  { bg: "#ffccbc", fg: "#bf360c" },
-  { bg: "#b2dfdb", fg: "#004d40" },
-  { bg: "#f8bbd0", fg: "#880e4f" },
-  { bg: "#dcedc8", fg: "#33691e" },
+  { bg: "#e0f2f1", fg: "#00695c" }, { bg: "#ffe0b2", fg: "#e65100" },
+  { bg: "#e1bee7", fg: "#6a1b9a" }, { bg: "#c5cae9", fg: "#283593" },
+  { bg: "#ffccbc", fg: "#bf360c" }, { bg: "#b2dfdb", fg: "#004d40" },
+  { bg: "#f8bbd0", fg: "#880e4f" }, { bg: "#dcedc8", fg: "#33691e" },
 ];
 const colorForUser = (key) => {
   if (!key) return BADGE_COLORS[0];
@@ -68,7 +58,12 @@ const S = {
   liveDot: (live) => ({ width: 7, height: 7, borderRadius: "50%", background: live ? "#4ade80" : "#94a3b8", boxShadow: live ? "0 0 6px #4ade80" : "none" }),
   backBtn: { background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 },
   accessBadge: (bg, fg) => ({ display: "inline-block", background: bg, color: fg, padding: "3px 10px", borderRadius: 10, fontSize: 10, fontWeight: 700, letterSpacing: 1, marginTop: 6 }),
-  statRow: { marginTop: 16, display: "flex", gap: 10 },
+  clockRow: { display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" },
+  clockBox: { background: "rgba(255,255,255,0.12)", borderRadius: 10, padding: "8px 12px", flex: "1 1 auto", minWidth: 100 },
+  clockLabel: { fontSize: 8, color: "rgba(255,255,255,0.6)", fontWeight: 700, letterSpacing: 1, marginBottom: 2 },
+  clockTime: { fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#fff", lineHeight: 1.2 },
+  clockSub: { fontSize: 10, color: "rgba(255,255,255,0.5)" },
+  statRow: { marginTop: 12, display: "flex", gap: 10 },
   stat: { background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px 12px", textAlign: "center", flex: 1 },
   statNum: { fontFamily: "'Playfair Display',serif", fontSize: 24, color: "#fff", lineHeight: 1 },
   statLabel: { fontSize: 8, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: 1, marginTop: 2 },
@@ -90,6 +85,10 @@ const S = {
   addedBy: (bg, fg) => ({ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, background: bg, color: fg, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }),
   budgetCard: (accent) => ({ background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: `4px solid ${accent}` }),
   totalBanner: (bg, text) => ({ background: bg, borderRadius: 16, padding: "16px 18px", marginBottom: 12, textAlign: "center", color: text }),
+  currencyCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", border: "1.5px solid #e0f2f1" },
+  currencyRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 8 },
+  currencyResult: { fontSize: 20, fontWeight: 800, color: "#005f73", fontFamily: "'Playfair Display',serif" },
+  currencyLabel: { fontSize: 11, color: "#78909c", fontWeight: 600 },
 };
 
 function Modal({ onClose, children }) {
@@ -107,9 +106,83 @@ function AddedBy({ userId, userMap }) {
   return <span style={S.addedBy(color.bg, color.fg)}>👤 {name}</span>;
 }
 
+// ── LIVE TIMEZONE CLOCK ──────────────────────────────────────────────────────
+function DestinationClock({ timezone, label }) {
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    if (!timezone) return;
+    const tick = () => {
+      try {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+        const dateStr = now.toLocaleDateString("en-US", { timeZone: timezone, weekday: "short", month: "short", day: "numeric" });
+        setTime(`${timeStr}|${dateStr}`);
+      } catch (e) {
+        setTime("--");
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [timezone]);
+
+  if (!timezone || !time) return null;
+  const [t, d] = time.split("|");
+
+  return (
+    <div style={S.clockBox}>
+      <div style={S.clockLabel}>{label || timezone}</div>
+      <div style={S.clockTime}>{t}</div>
+      <div style={S.clockSub}>{d}</div>
+    </div>
+  );
+}
+
+// ── CURRENCY CONVERTER ───────────────────────────────────────────────────────
+function CurrencyConverter({ currencyCode, rate }) {
+  const [amount, setAmount] = useState("100");
+  if (!currencyCode || currencyCode === "USD" || !rate) return null;
+
+  const usdAmount = parseFloat(amount) || 0;
+  const converted = (usdAmount * rate).toFixed(2);
+  const reverseConverted = (usdAmount / rate).toFixed(2);
+
+  return (
+    <div style={S.currencyCard}>
+      <div style={S.label}>💱 CURRENCY CONVERTER</div>
+      <div style={S.currencyRow}>
+        <div style={{ position: "relative", flex: 1 }}>
+          <span style={{ position: "absolute", left: 10, top: 10, fontSize: 13, color: "#78909c", fontWeight: 700 }}>$</span>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            style={{ ...S.input, paddingLeft: 24, marginBottom: 0 }}
+          />
+        </div>
+        <span style={{ fontSize: 13, color: "#78909c", fontWeight: 700 }}>USD</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={S.currencyResult}>{parseFloat(converted).toLocaleString()} {currencyCode}</div>
+          <div style={S.currencyLabel}>1 USD = {rate.toFixed(4)} {currencyCode}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 12, color: "#546e7a", fontWeight: 600 }}>{currencyCode} → USD</div>
+          <div style={{ fontSize: 12, color: "#78909c" }}>1 {currencyCode} = ${(1 / rate).toFixed(4)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TRIP DETAIL ──────────────────────────────────────────────────────────────
 function TripDetail({ tripId, session, onBack }) {
   const [tab, setTab] = useState("home");
   const [trip, setTrip] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [exchangeRate, setExchangeRate] = useState(null);
   const [accessLevel, setAccessLevel] = useState("editor");
   const [userMap, setUserMap] = useState({});
   const [days, setDays] = useState([]);
@@ -129,14 +202,12 @@ function TripDetail({ tripId, session, onBack }) {
 
   const isOwner = accessLevel === "owner";
   const hasFullAccess = accessLevel === "owner" || accessLevel === "co-owner";
-
   const currentUserId = session.user.id;
 
-  // Permission helper: can the current user edit/delete this specific row?
   const canModify = useCallback((row) => {
     if (!row) return false;
-    if (hasFullAccess) return true; // owners and co-owners can modify anything
-    return row.created_by === currentUserId; // editors can only modify their own
+    if (hasFullAccess) return true;
+    return row.created_by === currentUserId;
   }, [hasFullAccess, currentUserId]);
 
   const displayNameFor = (user) => {
@@ -145,11 +216,32 @@ function TripDetail({ tripId, session, onBack }) {
     return meta.full_name || meta.name || (user.email ? user.email.split("@")[0] : "User");
   };
 
+  // Fetch exchange rate for destination currency (cached per currency)
+  const fetchExchangeRate = useCallback(async (currCode) => {
+    if (!currCode || currCode === "USD") { setExchangeRate(null); return; }
+    try {
+      const resp = await fetch(`https://open.er-api.com/v6/latest/USD`);
+      const data = await resp.json();
+      if (data.result === "success" && data.rates[currCode]) {
+        setExchangeRate(data.rates[currCode]);
+      }
+    } catch (e) {
+      console.error("Exchange rate fetch error:", e);
+    }
+  }, []);
+
   const load = useCallback(async () => {
-    const tripResp = await supabase.from("trips").select("*").eq("id", tripId).maybeSingle();
+    // Load trip WITH destination data
+    const tripResp = await supabase
+      .from("trips")
+      .select("*, destination:destinations(name, country, timezone, currency_code)")
+      .eq("id", tripId)
+      .maybeSingle();
     if (tripResp.error) console.error("Trip load error:", tripResp.error);
     const loadedTrip = tripResp.data || null;
     setTrip(loadedTrip);
+    const dest = loadedTrip?.destination || null;
+    setDestination(dest);
 
     let level = "editor";
     if (loadedTrip?.owner_id === currentUserId) {
@@ -198,6 +290,7 @@ function TripDetail({ tripId, session, onBack }) {
       setPacking([]); setEstimates([]); setTripBudget(0);
     }
 
+    // Build userMap
     const ids = new Set();
     if (loadedTrip?.owner_id) ids.add(loadedTrip.owner_id);
     (d.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
@@ -211,36 +304,33 @@ function TripDetail({ tripId, session, onBack }) {
       .eq("trip_id", tripId);
     const collabEmailById = {};
     (collabRows || []).forEach((c) => {
-      if (c.user_id) {
-        ids.add(c.user_id);
-        collabEmailById[c.user_id] = c.user_email;
-      }
+      if (c.user_id) { ids.add(c.user_id); collabEmailById[c.user_id] = c.user_email; }
     });
 
     const map = {};
     ids.forEach((id) => {
-      if (id === currentUserId) {
-        map[id] = displayNameFor(session.user);
-      } else if (collabEmailById[id]) {
-        map[id] = collabEmailById[id].split("@")[0];
-      } else if (id === loadedTrip?.owner_id) {
-        map[id] = "Trip owner";
-      } else {
-        map[id] = "Someone";
-      }
+      if (id === currentUserId) map[id] = displayNameFor(session.user);
+      else if (collabEmailById[id]) map[id] = collabEmailById[id].split("@")[0];
+      else if (id === loadedTrip?.owner_id) map[id] = "Trip owner";
+      else map[id] = "Someone";
     });
     setUserMap(map);
 
     setLoading(false);
   }, [tripId, currentUserId, session.user]);
 
+  // Initial load + fetch exchange rate
   useEffect(() => {
     setLoading(true);
     load();
   }, [load]);
 
-  // ── REALTIME SUBSCRIPTION ──────────────────────────────────────────────────
-  // Debounce rapid successive changes into one reload
+  // Fetch exchange rate whenever destination changes
+  useEffect(() => {
+    if (destination?.currency_code) fetchExchangeRate(destination.currency_code);
+  }, [destination?.currency_code, fetchExchangeRate]);
+
+  // ── REALTIME ───────────────────────────────────────────────────────────────
   const reloadTimer = useRef(null);
   const debouncedLoad = useCallback(() => {
     if (reloadTimer.current) clearTimeout(reloadTimer.current);
@@ -248,26 +338,12 @@ function TripDetail({ tripId, session, onBack }) {
   }, [load]);
 
   useEffect(() => {
-    // Subscribe to all changes on shared tables for this trip
-    const tables = [
-      "itinerary_days", "itinerary_items", "flights", "hotels",
-      "packing_items", "budget_estimates", "trip_budget", "trip_collaborators"
-    ];
-
+    const tables = ["itinerary_days", "itinerary_items", "flights", "hotels", "packing_items", "budget_estimates", "trip_budget", "trip_collaborators"];
     const channel = supabase.channel(`trip-${tripId}`);
-
     tables.forEach((table) => {
-      channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table, filter: `trip_id=eq.${tripId}` },
-        () => debouncedLoad()
-      );
+      channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `trip_id=eq.${tripId}` }, () => debouncedLoad());
     });
-
-    channel.subscribe((status) => {
-      setLiveConnected(status === "SUBSCRIBED");
-    });
-
+    channel.subscribe((status) => { setLiveConnected(status === "SUBSCRIBED"); });
     return () => {
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
       supabase.removeChannel(channel);
@@ -281,10 +357,7 @@ function TripDetail({ tripId, session, onBack }) {
   const f = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
   const flightsTotal = flights.reduce((s, fl) => s + (parseFloat(fl.price) || 0), 0);
-  const hotelsTotal = hotels.reduce((s, h) => {
-    const nights = nightsBetween(h.check_in, h.check_out);
-    return s + nights * (parseFloat(h.price_per_night) || 0);
-  }, 0);
+  const hotelsTotal = hotels.reduce((s, h) => s + nightsBetween(h.check_in, h.check_out) * (parseFloat(h.price_per_night) || 0), 0);
   const bookedActivities = items.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
   const confirmedTotal = flightsTotal + hotelsTotal + bookedActivities;
   const estimatesTotal = estimates.reduce((s, e) => s + (parseFloat(e.daily_amount) || 0) * (parseInt(e.days) || 1), 0);
@@ -293,178 +366,54 @@ function TripDetail({ tripId, session, onBack }) {
 
   const closeModal = () => { setShowModal(null); setForm({}); setEditItem(null); };
 
-  const saveDay = async () => {
-    if (!form.date) return;
-    const payload = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: tripId };
-    if (editItem) await supabase.from("itinerary_days").update(payload).eq("id", editItem.id);
-    else await supabase.from("itinerary_days").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
-  };
+  const saveDay = async () => { if (!form.date) return; const p = { date: form.date, location: form.location || "", notes: form.notes || "", trip_id: tripId }; if (editItem) await supabase.from("itinerary_days").update(p).eq("id", editItem.id); else await supabase.from("itinerary_days").insert({ ...p, created_by: currentUserId }); closeModal(); load(); };
+  const saveItem = async () => { if (!form.title || !activeDay) return; const p = { day_id: activeDay, trip_id: tripId, category: form.category || ACTIVITY_CATEGORIES[0], title: form.title, details: form.details || "", time: form.time || "", confirmed: form.confirmed === "true" || form.confirmed === true, price: parseFloat(form.price) || 0, is_booked: form.is_booked === "true" || form.is_booked === true }; if (editItem) await supabase.from("itinerary_items").update(p).eq("id", editItem.id); else await supabase.from("itinerary_items").insert({ ...p, created_by: currentUserId }); closeModal(); load(); };
+  const saveFlight = async () => { if (!form.flight_number) return; const p = { trip_id: tripId, flight_number: form.flight_number, from_location: form.from_location || "", to_location: form.to_location || "", departure: form.departure || "", arrival: form.arrival || "", airline: form.airline || "" }; if (hasFullAccess) { p.confirmation = form.confirmation || ""; p.price = parseFloat(form.price) || 0; } if (editItem) await supabase.from("flights").update(p).eq("id", editItem.id); else await supabase.from("flights").insert({ ...p, created_by: currentUserId }); closeModal(); load(); };
+  const saveHotel = async () => { if (!form.name) return; const p = { trip_id: tripId, name: form.name, location: form.location || "", check_in: form.check_in || "", check_out: form.check_out || "", notes: form.notes || "" }; if (hasFullAccess) { p.confirmation = form.confirmation || ""; p.price_per_night = parseFloat(form.price_per_night) || 0; } if (editItem) await supabase.from("hotels").update(p).eq("id", editItem.id); else await supabase.from("hotels").insert({ ...p, created_by: currentUserId }); closeModal(); load(); };
+  const savePacking = async () => { if (!form.item) return; const p = { trip_id: tripId, item: form.item, category: form.category || "Misc" }; if (editItem) await supabase.from("packing_items").update(p).eq("id", editItem.id); else await supabase.from("packing_items").insert({ ...p, packed: false }); closeModal(); load(); };
+  const saveEstimate = async () => { if (!form.label) return; const p = { trip_id: tripId, label: form.label, daily_amount: parseFloat(form.daily_amount) || 0, days: parseInt(form.days) || 1, category: form.category || ESTIMATE_CATEGORIES[0], sort_order: estimates.length }; if (editItem) await supabase.from("budget_estimates").update(p).eq("id", editItem.id); else await supabase.from("budget_estimates").insert(p); closeModal(); load(); };
 
-  const saveItem = async () => {
-    if (!form.title || !activeDay) return;
-    const payload = {
-      day_id: activeDay, trip_id: tripId,
-      category: form.category || ACTIVITY_CATEGORIES[0],
-      title: form.title, details: form.details || "", time: form.time || "",
-      confirmed: form.confirmed === "true" || form.confirmed === true,
-      price: parseFloat(form.price) || 0,
-      is_booked: form.is_booked === "true" || form.is_booked === true,
-    };
-    if (editItem) await supabase.from("itinerary_items").update(payload).eq("id", editItem.id);
-    else await supabase.from("itinerary_items").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
-  };
+  const saveTripBudget = async (val) => { const num = parseFloat(val) || 0; setTripBudget(num); const existing = await supabase.from("trip_budget").select("id").eq("trip_id", tripId).limit(1); if (existing.data && existing.data.length > 0) await supabase.from("trip_budget").update({ total_budget: num }).eq("id", existing.data[0].id); else await supabase.from("trip_budget").insert({ total_budget: num, trip_id: tripId }); };
 
-  const saveFlight = async () => {
-    if (!form.flight_number) return;
-    const payload = {
-      trip_id: tripId,
-      flight_number: form.flight_number,
-      from_location: form.from_location || "",
-      to_location: form.to_location || "",
-      departure: form.departure || "",
-      arrival: form.arrival || "",
-      airline: form.airline || "",
-    };
-    if (hasFullAccess) {
-      payload.confirmation = form.confirmation || "";
-      payload.price = parseFloat(form.price) || 0;
-    }
-    if (editItem) await supabase.from("flights").update(payload).eq("id", editItem.id);
-    else await supabase.from("flights").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
-  };
-
-  const saveHotel = async () => {
-    if (!form.name) return;
-    const payload = {
-      trip_id: tripId,
-      name: form.name, location: form.location || "",
-      check_in: form.check_in || "", check_out: form.check_out || "",
-      notes: form.notes || "",
-    };
-    if (hasFullAccess) {
-      payload.confirmation = form.confirmation || "";
-      payload.price_per_night = parseFloat(form.price_per_night) || 0;
-    }
-    if (editItem) await supabase.from("hotels").update(payload).eq("id", editItem.id);
-    else await supabase.from("hotels").insert({ ...payload, created_by: currentUserId });
-    closeModal(); load();
-  };
-
-  const savePacking = async () => {
-    if (!form.item) return;
-    const payload = { trip_id: tripId, item: form.item, category: form.category || "Misc" };
-    if (editItem) await supabase.from("packing_items").update(payload).eq("id", editItem.id);
-    else await supabase.from("packing_items").insert({ ...payload, packed: false });
-    closeModal(); load();
-  };
-
-  const saveEstimate = async () => {
-    if (!form.label) return;
-    const payload = {
-      trip_id: tripId, label: form.label,
-      daily_amount: parseFloat(form.daily_amount) || 0,
-      days: parseInt(form.days) || 1,
-      category: form.category || ESTIMATE_CATEGORIES[0],
-      sort_order: estimates.length,
-    };
-    if (editItem) await supabase.from("budget_estimates").update(payload).eq("id", editItem.id);
-    else await supabase.from("budget_estimates").insert(payload);
-    closeModal(); load();
-  };
-
-  const saveTripBudget = async (val) => {
-    const num = parseFloat(val) || 0;
-    setTripBudget(num);
-    const existing = await supabase.from("trip_budget").select("id").eq("trip_id", tripId).limit(1);
-    if (existing.data && existing.data.length > 0) {
-      await supabase.from("trip_budget").update({ total_budget: num }).eq("id", existing.data[0].id);
-    } else {
-      await supabase.from("trip_budget").insert({ total_budget: num, trip_id: tripId });
-    }
-  };
-
-  const deleteRecord = async (table, id) => {
-    await supabase.from(table).delete().eq("id", id);
-    load();
-  };
-
-  const togglePacked = async (id, packed) => {
-    setPacking((p) => p.map((x) => (x.id === id ? { ...x, packed: !packed } : x)));
-    await supabase.from("packing_items").update({ packed: !packed }).eq("id", id);
-  };
-
-  const toggleConfirmed = async (id, confirmed) => {
-    setItems((p) => p.map((x) => (x.id === id ? { ...x, confirmed: !confirmed } : x)));
-    await supabase.from("itinerary_items").update({ confirmed: !confirmed }).eq("id", id);
-  };
-
-  const openEdit = (modal, record, extra = {}) => {
-    setEditItem(record);
-    setForm({ ...record, ...extra });
-    setShowModal(modal);
-  };
+  const deleteRecord = async (table, id) => { await supabase.from(table).delete().eq("id", id); load(); };
+  const togglePacked = async (id, packed) => { setPacking((p) => p.map((x) => (x.id === id ? { ...x, packed: !packed } : x))); await supabase.from("packing_items").update({ packed: !packed }).eq("id", id); };
+  const toggleConfirmed = async (id, confirmed) => { setItems((p) => p.map((x) => (x.id === id ? { ...x, confirmed: !confirmed } : x))); await supabase.from("itinerary_items").update({ confirmed: !confirmed }).eq("id", id); };
+  const openEdit = (modal, record, extra = {}) => { setEditItem(record); setForm({ ...record, ...extra }); setShowModal(modal); };
 
   const packedCount = packing.filter((p) => p.packed).length;
 
-  if (loading) {
-    return (
-      <div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 48 }}>🌺</div>
-          <div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading trip…</div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (<div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 48 }}>🌺</div><div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading trip…</div></div></div>);
 
   const tripName = trip?.name || "My Trip";
   const tripDates = trip ? formatTripDates(trip.start_date, trip.end_date) : "";
   const tripStart = trip?.start_date;
+  const destTimezone = destination?.timezone;
+  const destCurrency = destination?.currency_code;
+  const destName = destination?.name;
 
-  const tabs = [
-    { id: "home", l: "🏠 HOME" },
-    { id: "itinerary", l: "📅 ITINERARY" },
-    { id: "flights", l: "✈️ FLIGHTS" },
-    { id: "hotels", l: "🏨 HOTELS" },
-  ];
-  if (hasFullAccess) {
-    tabs.push({ id: "packing", l: "🎒 PACKING" });
-    tabs.push({ id: "budget", l: "💰 BUDGET" });
-  }
+  const tabs = [{ id: "home", l: "🏠 HOME" }, { id: "itinerary", l: "📅 ITINERARY" }, { id: "flights", l: "✈️ FLIGHTS" }, { id: "hotels", l: "🏨 HOTELS" }];
+  if (hasFullAccess) { tabs.push({ id: "packing", l: "🎒 PACKING" }); tabs.push({ id: "budget", l: "💰 BUDGET" }); }
 
-  const ownerStats = [
-    { v: daysUntil(tripStart), l: "DAYS TO GO" },
-    { v: days.length, l: "DAYS PLANNED" },
-    { v: `${packedCount}/${packing.length}`, l: "PACKED" },
-    { v: fmt(confirmedTotal), l: "CONFIRMED" },
-  ];
-  const editorStats = [
-    { v: daysUntil(tripStart), l: "DAYS TO GO" },
-    { v: days.length, l: "DAYS PLANNED" },
-    { v: items.length, l: "ACTIVITIES" },
-    { v: hotels.length, l: "STAYS" },
-  ];
+  const ownerStats = [{ v: daysUntil(tripStart), l: "DAYS TO GO" }, { v: days.length, l: "DAYS PLANNED" }, { v: `${packedCount}/${packing.length}`, l: "PACKED" }, { v: fmt(confirmedTotal), l: "CONFIRMED" }];
+  const editorStats = [{ v: daysUntil(tripStart), l: "DAYS TO GO" }, { v: days.length, l: "DAYS PLANNED" }, { v: items.length, l: "ACTIVITIES" }, { v: hotels.length, l: "STAYS" }];
   const displayStats = hasFullAccess ? ownerStats : editorStats;
 
   return (
     <div style={S.wrap}>
       <div style={S.hero}>
-        <div style={S.liveIndicator}>
-          <div style={S.liveDot(liveConnected)} />
-          {liveConnected ? "LIVE" : "OFFLINE"}
-        </div>
+        <div style={S.liveIndicator}><div style={S.liveDot(liveConnected)} />{liveConnected ? "LIVE" : "OFFLINE"}</div>
         <button style={{ ...S.backBtn, marginLeft: 70 }} onClick={onBack}>← My Trips</button>
         <p style={{ ...S.heroTitle, marginBottom: 4 }}>{tripName} 🌴</p>
         <div style={S.heroSub}>{tripDates} ✈️</div>
-        {accessLevel === "co-owner" && (
-          <div style={S.accessBadge("rgba(255,255,255,0.25)", "#fff")}>⭐ CO-OWNER</div>
-        )}
-        {accessLevel === "editor" && (
-          <div style={S.accessBadge("rgba(255,255,255,0.2)", "#fff")}>👥 SHARED WITH YOU</div>
-        )}
+        {accessLevel === "co-owner" && <div style={S.accessBadge("rgba(255,255,255,0.25)", "#fff")}>⭐ CO-OWNER</div>}
+        {accessLevel === "editor" && <div style={S.accessBadge("rgba(255,255,255,0.2)", "#fff")}>👥 SHARED WITH YOU</div>}
+
+        {/* Timezone clocks */}
+        <div style={S.clockRow}>
+          {destTimezone && <DestinationClock timezone={destTimezone} label={`📍 ${destName || "DESTINATION"}`} />}
+          <DestinationClock timezone={Intl.DateTimeFormat().resolvedOptions().timeZone} label="🏠 YOUR TIME" />
+        </div>
+
         <div style={S.statRow}>
           {displayStats.map((s, i) => (
             <div key={i} style={S.stat}>
@@ -473,50 +422,36 @@ function TripDetail({ tripId, session, onBack }) {
             </div>
           ))}
         </div>
-        <svg style={{ position: "absolute", bottom: -2, left: 0, right: 0 }} viewBox="0 0 480 40" preserveAspectRatio="none" height="40">
-          <path d="M0,20 C120,40 360,0 480,20 L480,40 L0,40 Z" fill="#f0f9f9" />
-        </svg>
+        <svg style={{ position: "absolute", bottom: -2, left: 0, right: 0 }} viewBox="0 0 480 40" preserveAspectRatio="none" height="40"><path d="M0,20 C120,40 360,0 480,20 L480,40 L0,40 Z" fill="#f0f9f9" /></svg>
       </div>
 
-      <div style={S.nav}>
-        {tabs.map((t) => (
-          <button key={t.id} style={S.nb(tab === t.id)} onClick={() => setTab(t.id)}>{t.l}</button>
-        ))}
-      </div>
+      <div style={S.nav}>{tabs.map((t) => (<button key={t.id} style={S.nb(tab === t.id)} onClick={() => setTab(t.id)}>{t.l}</button>))}</div>
 
       {tab === "home" && (
         <div style={S.sec}>
+          {/* Currency converter */}
+          {destCurrency && destCurrency !== "USD" && exchangeRate && (
+            <CurrencyConverter currencyCode={destCurrency} rate={exchangeRate} />
+          )}
+
           {hasFullAccess && (
             <div style={{ ...S.card, background: "linear-gradient(135deg, #e8f5e9, #f0f9f9)" }}>
               <div style={S.label}>TRIP BUDGET SNAPSHOT</div>
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
-                  <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>BUDGET</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#1a2e35" }}>{fmt(tripBudget)}</div>
-                </div>
-                <div style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 10, padding: "10px 6px" }}>
-                  <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>PROJECTED</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#e76f51" }}>{fmt(grandTotal)}</div>
-                </div>
-                <div style={{ flex: 1, textAlign: "center", background: remaining >= 0 ? "#e8f5e9" : "#fdecea", borderRadius: 10, padding: "10px 6px" }}>
-                  <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>LEFT</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: remaining >= 0 ? "#2e7d32" : "#c62828" }}>{fmt(remaining)}</div>
-                </div>
+                {[{ l: "BUDGET", v: fmt(tripBudget), c: "#1a2e35" }, { l: "PROJECTED", v: fmt(grandTotal), c: "#e76f51" }, { l: "LEFT", v: fmt(remaining), c: remaining >= 0 ? "#2e7d32" : "#c62828" }].map((b) => (
+                  <div key={b.l} style={{ flex: 1, textAlign: "center", background: b.l === "LEFT" ? (remaining >= 0 ? "#e8f5e9" : "#fdecea") : "#fff", borderRadius: 10, padding: "10px 6px" }}>
+                    <div style={{ fontSize: 11, color: "#666", fontWeight: 700 }}>{b.l}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: b.c }}>{b.v}</div>
+                  </div>
+                ))}
               </div>
-              <button style={{ ...S.btnSm("#0a9396"), width: "100%", padding: "8px" }} onClick={() => setTab("budget")}>
-                View Full Budget →
-              </button>
+              <button style={{ ...S.btnSm("#0a9396"), width: "100%", padding: "8px" }} onClick={() => setTab("budget")}>View Full Budget →</button>
             </div>
           )}
 
           <div style={S.card}>
             <div style={S.label}>QUICK STATS</div>
-            {[
-              { l: "Flights", v: flights.length },
-              { l: "Hotels/stays", v: hotels.length },
-              { l: "Activities planned", v: items.length },
-              { l: "Days planned", v: days.length },
-            ].map((s) => (
+            {[{ l: "Flights", v: flights.length }, { l: "Hotels/stays", v: hotels.length }, { l: "Activities planned", v: items.length }, { l: "Days planned", v: days.length }].map((s) => (
               <div key={s.l} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid #f0f9f9" }}>
                 <span style={{ fontSize: 13, color: "#546e7a" }}>{s.l}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{s.v}</span>
@@ -530,11 +465,7 @@ function TripDetail({ tripId, session, onBack }) {
         <div style={S.sec}>
           <button style={S.btn()} onClick={() => { setForm({}); setShowModal("day"); }}>+ Add Day</button>
           <div style={{ marginTop: 12 }}>
-            {days.length === 0 && (
-              <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic", padding: 30 }}>
-                No days planned yet. Tap "+ Add Day" to start.
-              </div>
-            )}
+            {days.length === 0 && <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic", padding: 30 }}>No days planned yet. Tap "+ Add Day" to start.</div>}
             {days.map((day) => {
               const dayItems = items.filter((i) => i.day_id === day.id);
               const daySpend = hasFullAccess ? dayItems.filter((i) => i.is_booked).reduce((s, i) => s + (parseFloat(i.price) || 0), 0) : 0;
@@ -543,9 +474,7 @@ function TripDetail({ tripId, session, onBack }) {
                 <div key={day.id} style={{ ...S.card, marginBottom: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>
-                        {new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                      </div>
+                      <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>{new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
                       <div style={{ fontSize: 12, color: "#78909c" }}>{day.location}</div>
                       <AddedBy userId={day.created_by} userMap={userMap} />
                     </div>
@@ -556,41 +485,26 @@ function TripDetail({ tripId, session, onBack }) {
                     </div>
                   </div>
                   {day.notes && <div style={{ fontSize: 12, color: "#78909c", marginBottom: 10, fontStyle: "italic" }}>{day.notes}</div>}
-                  {dayItems.map((item) => {
-                    const canEditItem = canModify(item);
-                    return (
-                      <div key={item.id} style={{ background: item.confirmed ? "#f0fdf4" : "#fafafa", border: `1px solid ${item.confirmed ? "#bbf7d0" : "#e8f0f2"}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
-                        <input
-                          type="checkbox"
-                          checked={item.confirmed}
-                          disabled={!canEditItem}
-                          onChange={() => canEditItem && toggleConfirmed(item.id, item.confirmed)}
-                          style={{ marginTop: 3, accentColor: "#0a9396", cursor: canEditItem ? "pointer" : "not-allowed" }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            <span style={S.chip(CAT_COLORS[item.category] || "#90a4ae")}>{item.category}</span>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{item.title}</span>
-                            {hasFullAccess && (parseFloat(item.price) > 0) && (
-                              <span style={{ ...S.priceTag, fontSize: 11 }}>
-                                {item.is_booked ? "✅" : "~"} {fmt(item.price)}
-                              </span>
-                            )}
-                          </div>
-                          {item.time && <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>⏰ {item.time}</div>}
-                          {item.details && <div style={{ fontSize: 12, color: "#546e7a", marginTop: 3 }}>{item.details}</div>}
-                          <AddedBy userId={item.created_by} userMap={userMap} />
+                  {dayItems.map((item) => { const canEditItem = canModify(item); return (
+                    <div key={item.id} style={{ background: item.confirmed ? "#f0fdf4" : "#fafafa", border: `1px solid ${item.confirmed ? "#bbf7d0" : "#e8f0f2"}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      <input type="checkbox" checked={item.confirmed} disabled={!canEditItem} onChange={() => canEditItem && toggleConfirmed(item.id, item.confirmed)} style={{ marginTop: 3, accentColor: "#0a9396", cursor: canEditItem ? "pointer" : "not-allowed" }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span style={S.chip(CAT_COLORS[item.category] || "#90a4ae")}>{item.category}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#1a2e35" }}>{item.title}</span>
+                          {hasFullAccess && (parseFloat(item.price) > 0) && <span style={{ ...S.priceTag, fontSize: 11 }}>{item.is_booked ? "✅" : "~"} {fmt(item.price)}</span>}
                         </div>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          {canEditItem && <button style={S.btnSm("#94a3b8")} onClick={() => { setActiveDay(day.id); openEdit("item", item); }}>✏️</button>}
-                          {canEditItem && <button style={S.del} onClick={() => deleteRecord("itinerary_items", item.id)}>×</button>}
-                        </div>
+                        {item.time && <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>⏰ {item.time}</div>}
+                        {item.details && <div style={{ fontSize: 12, color: "#546e7a", marginTop: 3 }}>{item.details}</div>}
+                        <AddedBy userId={item.created_by} userMap={userMap} />
                       </div>
-                    );
-                  })}
-                  <button style={{ ...S.btnSm("#0a9396"), marginTop: 4, width: "100%", padding: "8px" }} onClick={() => { setActiveDay(day.id); setForm({ category: ACTIVITY_CATEGORIES[0] }); setShowModal("item"); }}>
-                    + Add Activity
-                  </button>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {canEditItem && <button style={S.btnSm("#94a3b8")} onClick={() => { setActiveDay(day.id); openEdit("item", item); }}>✏️</button>}
+                        {canEditItem && <button style={S.del} onClick={() => deleteRecord("itinerary_items", item.id)}>×</button>}
+                      </div>
+                    </div>
+                  ); })}
+                  <button style={{ ...S.btnSm("#0a9396"), marginTop: 4, width: "100%", padding: "8px" }} onClick={() => { setActiveDay(day.id); setForm({ category: ACTIVITY_CATEGORIES[0] }); setShowModal("item"); }}>+ Add Activity</button>
                 </div>
               );
             })}
@@ -600,446 +514,147 @@ function TripDetail({ tripId, session, onBack }) {
 
       {tab === "flights" && (
         <div style={S.sec}>
-          {hasFullAccess && flightsTotal > 0 && (
-            <div style={{ ...S.totalBanner("linear-gradient(135deg,#e3f2fd,#bbdefb)", "#1a2e35"), marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#1565c0", marginBottom: 4 }}>TOTAL FLIGHTS COST</div>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#1565c0" }}>{fmt(flightsTotal)}</div>
-            </div>
-          )}
+          {hasFullAccess && flightsTotal > 0 && (<div style={{ ...S.totalBanner("linear-gradient(135deg,#e3f2fd,#bbdefb)", "#1a2e35"), marginBottom: 12 }}><div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#1565c0", marginBottom: 4 }}>TOTAL FLIGHTS COST</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#1565c0" }}>{fmt(flightsTotal)}</div></div>)}
           <button style={S.btn()} onClick={() => { setForm({}); setShowModal("flight"); }}>+ Add Flight</button>
-          <div style={{ marginTop: 12 }}>
-            {flights.map((fl) => {
-              const canEditFlight = canModify(fl);
-              return (
-                <div key={fl.id} style={S.card}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>✈️ {fl.flight_number}</div>
-                      <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>{fl.from_location} → {fl.to_location}</div>
-                      {fl.airline && <div style={{ fontSize: 12, color: "#78909c" }}>{fl.airline}</div>}
-                      {fl.departure && <div style={{ fontSize: 12, color: "#78909c" }}>Dep: {fl.departure}</div>}
-                      {fl.arrival && <div style={{ fontSize: 12, color: "#78909c" }}>Arr: {fl.arrival}</div>}
-                      {hasFullAccess && fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
-                      <AddedBy userId={fl.created_by} userMap={userMap} />
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                      {hasFullAccess && parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
-                      <div style={{ display: "flex", gap: 4 }}>
-                        {canEditFlight && <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("flight", fl)}>✏️</button>}
-                        {canEditFlight && <button style={S.del} onClick={() => deleteRecord("flights", fl.id)}>×</button>}
-                      </div>
-                    </div>
-                  </div>
+          <div style={{ marginTop: 12 }}>{flights.map((fl) => { const canEditFlight = canModify(fl); return (
+            <div key={fl.id} style={S.card}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>✈️ {fl.flight_number}</div>
+                <div style={{ fontSize: 13, color: "#1a2e35", marginTop: 4 }}>{fl.from_location} → {fl.to_location}</div>
+                {fl.airline && <div style={{ fontSize: 12, color: "#78909c" }}>{fl.airline}</div>}
+                {fl.departure && <div style={{ fontSize: 12, color: "#78909c" }}>Dep: {fl.departure}</div>}
+                {fl.arrival && <div style={{ fontSize: 12, color: "#78909c" }}>Arr: {fl.arrival}</div>}
+                {hasFullAccess && fl.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {fl.confirmation}</div>}
+                <AddedBy userId={fl.created_by} userMap={userMap} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                {hasFullAccess && parseFloat(fl.price) > 0 && <span style={S.priceTag}>{fmt(fl.price)}</span>}
+                <div style={{ display: "flex", gap: 4 }}>
+                  {canEditFlight && <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("flight", fl)}>✏️</button>}
+                  {canEditFlight && <button style={S.del} onClick={() => deleteRecord("flights", fl.id)}>×</button>}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </div></div>
+          ); })}</div>
         </div>
       )}
 
       {tab === "hotels" && (
         <div style={S.sec}>
-          {hasFullAccess && hotelsTotal > 0 && (
-            <div style={{ ...S.totalBanner("linear-gradient(135deg,#f3e5f5,#e1bee7)", "#1a2e35"), marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#6a1b9a", marginBottom: 4 }}>TOTAL LODGING COST</div>
-              <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#6a1b9a" }}>{fmt(hotelsTotal)}</div>
-            </div>
-          )}
+          {hasFullAccess && hotelsTotal > 0 && (<div style={{ ...S.totalBanner("linear-gradient(135deg,#f3e5f5,#e1bee7)", "#1a2e35"), marginBottom: 12 }}><div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: "#6a1b9a", marginBottom: 4 }}>TOTAL LODGING COST</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: 30, fontWeight: 700, color: "#6a1b9a" }}>{fmt(hotelsTotal)}</div></div>)}
           <button style={S.btn()} onClick={() => { setForm({}); setShowModal("hotel"); }}>+ Add Hotel / Airbnb</button>
-          <div style={{ marginTop: 12 }}>
-            {hotels.map((h) => {
-              const nights = nightsBetween(h.check_in, h.check_out);
-              const total = nights * (parseFloat(h.price_per_night) || 0);
-              const canEditHotel = canModify(h);
-              return (
-                <div key={h.id} style={S.card}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>🏨 {h.name}</div>
-                      {h.location && <div style={{ fontSize: 12, color: "#78909c" }}>📍 {h.location}</div>}
-                      <div style={{ fontSize: 12, color: "#546e7a", marginTop: 4 }}>
-                        {h.check_in} → {h.check_out}
-                        {nights > 0 && <span style={{ fontWeight: 700, color: "#0a9396" }}> ({nights} nights)</span>}
-                      </div>
-                      {hasFullAccess && parseFloat(h.price_per_night) > 0 && (
-                        <div style={{ fontSize: 12, color: "#78909c", marginTop: 2 }}>
-                          {fmt(h.price_per_night)}/night
-                          {total > 0 && <span style={{ fontWeight: 800, color: "#2e7d32" }}> = {fmt(total)} total</span>}
-                        </div>
-                      )}
-                      {hasFullAccess && h.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {h.confirmation}</div>}
-                      {h.notes && <div style={{ fontSize: 12, color: "#78909c", marginTop: 4, fontStyle: "italic" }}>{h.notes}</div>}
-                      <AddedBy userId={h.created_by} userMap={userMap} />
-                    </div>
-                    <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-                      {canEditHotel && <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("hotel", h)}>✏️</button>}
-                      {canEditHotel && <button style={S.del} onClick={() => deleteRecord("hotels", h.id)}>×</button>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <div style={{ marginTop: 12 }}>{hotels.map((h) => { const nights = nightsBetween(h.check_in, h.check_out); const total = nights * (parseFloat(h.price_per_night) || 0); const canEditHotel = canModify(h); return (
+            <div key={h.id} style={S.card}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, color: "#005f73", fontSize: 15 }}>🏨 {h.name}</div>
+                {h.location && <div style={{ fontSize: 12, color: "#78909c" }}>📍 {h.location}</div>}
+                <div style={{ fontSize: 12, color: "#546e7a", marginTop: 4 }}>{h.check_in} → {h.check_out}{nights > 0 && <span style={{ fontWeight: 700, color: "#0a9396" }}> ({nights} nights)</span>}</div>
+                {hasFullAccess && parseFloat(h.price_per_night) > 0 && <div style={{ fontSize: 12, color: "#78909c", marginTop: 2 }}>{fmt(h.price_per_night)}/night{total > 0 && <span style={{ fontWeight: 800, color: "#2e7d32" }}> = {fmt(total)} total</span>}</div>}
+                {hasFullAccess && h.confirmation && <div style={{ fontSize: 11, color: "#0a9396", fontWeight: 700, marginTop: 4 }}>Conf: {h.confirmation}</div>}
+                {h.notes && <div style={{ fontSize: 12, color: "#78909c", marginTop: 4, fontStyle: "italic" }}>{h.notes}</div>}
+                <AddedBy userId={h.created_by} userMap={userMap} />
+              </div>
+              <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+                {canEditHotel && <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("hotel", h)}>✏️</button>}
+                {canEditHotel && <button style={S.del} onClick={() => deleteRecord("hotels", h.id)}>×</button>}
+              </div>
+            </div></div>
+          ); })}</div>
         </div>
       )}
 
       {hasFullAccess && tab === "packing" && (
         <div style={S.sec}>
           <div style={{ ...S.card, background: "linear-gradient(135deg,#e0f7fa,#f0f9f9)", marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontWeight: 800, fontSize: 14, color: "#005f73" }}>Packing Progress</span>
-              <span style={{ fontWeight: 700, color: "#0a9396" }}>{packedCount}/{packing.length}</span>
-            </div>
-            <div style={{ background: "#b2ebf2", borderRadius: 8, height: 8, overflow: "hidden" }}>
-              <div style={{ background: "#0a9396", height: "100%", width: `${packing.length ? (packedCount / packing.length) * 100 : 0}%`, borderRadius: 8, transition: "width 0.3s" }} />
-            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontWeight: 800, fontSize: 14, color: "#005f73" }}>Packing Progress</span><span style={{ fontWeight: 700, color: "#0a9396" }}>{packedCount}/{packing.length}</span></div>
+            <div style={{ background: "#b2ebf2", borderRadius: 8, height: 8, overflow: "hidden" }}><div style={{ background: "#0a9396", height: "100%", width: `${packing.length ? (packedCount / packing.length) * 100 : 0}%`, borderRadius: 8, transition: "width 0.3s" }} /></div>
           </div>
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, scrollbarWidth: "none", marginBottom: 8 }}>
-            {["All", ...PACKING_CATEGORIES].map((cat) => (
-              <button key={cat} style={{ ...S.btnSm(packFilter === cat ? "#0a9396" : "#b2dfdb"), color: packFilter === cat ? "#fff" : "#005f73", flex: "0 0 auto" }} onClick={() => setPackFilter(cat)}>
-                {cat}
-              </button>
-            ))}
+            {["All", ...PACKING_CATEGORIES].map((cat) => (<button key={cat} style={{ ...S.btnSm(packFilter === cat ? "#0a9396" : "#b2dfdb"), color: packFilter === cat ? "#fff" : "#005f73", flex: "0 0 auto" }} onClick={() => setPackFilter(cat)}>{cat}</button>))}
           </div>
           <button style={S.btn()} onClick={() => { setForm({ category: "Misc" }); setShowModal("packing"); }}>+ Add Item</button>
           <div style={{ marginTop: 12 }}>
-            {PACKING_CATEGORIES.filter((c) => packFilter === "All" || packFilter === c).map((cat) => {
-              const catItems = packing.filter((p) => p.category === cat);
-              if (!catItems.length) return null;
-              return (
-                <div key={cat} style={{ marginBottom: 16 }}>
-                  <div style={S.label}>{cat.toUpperCase()}</div>
-                  {catItems.map((p) => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: p.packed ? "#f0fdf4" : "#fff", borderRadius: 10, marginBottom: 6, border: `1px solid ${p.packed ? "#bbf7d0" : "#e0f2f1"}` }}>
-                      <input type="checkbox" checked={p.packed} onChange={() => togglePacked(p.id, p.packed)} style={{ accentColor: "#0a9396" }} />
-                      <span style={{ flex: 1, fontSize: 14, color: p.packed ? "#78909c" : "#1a2e35", textDecoration: p.packed ? "line-through" : "none" }}>{p.item}</span>
-                      <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("packing", p)}>✏️</button>
-                      <button style={S.del} onClick={() => deleteRecord("packing_items", p.id)}>×</button>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
+            {PACKING_CATEGORIES.filter((c) => packFilter === "All" || packFilter === c).map((cat) => { const catItems = packing.filter((p) => p.category === cat); if (!catItems.length) return null; return (
+              <div key={cat} style={{ marginBottom: 16 }}><div style={S.label}>{cat.toUpperCase()}</div>
+                {catItems.map((p) => (<div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: p.packed ? "#f0fdf4" : "#fff", borderRadius: 10, marginBottom: 6, border: `1px solid ${p.packed ? "#bbf7d0" : "#e0f2f1"}` }}>
+                  <input type="checkbox" checked={p.packed} onChange={() => togglePacked(p.id, p.packed)} style={{ accentColor: "#0a9396" }} />
+                  <span style={{ flex: 1, fontSize: 14, color: p.packed ? "#78909c" : "#1a2e35", textDecoration: p.packed ? "line-through" : "none" }}>{p.item}</span>
+                  <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("packing", p)}>✏️</button>
+                  <button style={S.del} onClick={() => deleteRecord("packing_items", p.id)}>×</button>
+                </div>))}
+              </div>
+            ); })}
           </div>
         </div>
       )}
 
       {hasFullAccess && tab === "budget" && (
         <div style={S.sec}>
-          <div style={S.card}>
-            <div style={S.label}>TOTAL TRIP BUDGET</div>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-              <input type="number" key={tripBudget} defaultValue={tripBudget || ""} placeholder="Enter your total budget" onBlur={(e) => saveTripBudget(e.target.value)} style={{ ...S.priceInput, paddingLeft: 24 }} />
-            </div>
-          </div>
+          <div style={S.card}><div style={S.label}>TOTAL TRIP BUDGET</div><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span><input type="number" key={tripBudget} defaultValue={tripBudget || ""} placeholder="Enter your total budget" onBlur={(e) => saveTripBudget(e.target.value)} style={{ ...S.priceInput, paddingLeft: 24 }} /></div></div>
 
           <div style={S.totalBanner(remaining >= 0 ? "linear-gradient(135deg,#e8f5e9,#c8e6c9)" : "linear-gradient(135deg,#fdecea,#ffcdd2)", "#1a2e35")}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: remaining >= 0 ? "#2e7d32" : "#c62828", marginBottom: 4 }}>
-              {remaining >= 0 ? "✅ UNDER BUDGET" : "⚠️ OVER BUDGET"}
-            </div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: remaining >= 0 ? "#2e7d32" : "#c62828", marginBottom: 4 }}>{remaining >= 0 ? "✅ UNDER BUDGET" : "⚠️ OVER BUDGET"}</div>
             <div style={{ display: "flex", justifyContent: "space-around" }}>
-              <div>
-                <div style={{ fontSize: 11, color: "#546e7a", fontWeight: 700 }}>PROJECTED</div>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: "#e76f51" }}>{fmt(grandTotal)}</div>
-              </div>
+              <div><div style={{ fontSize: 11, color: "#546e7a", fontWeight: 700 }}>PROJECTED</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: "#e76f51" }}>{fmt(grandTotal)}</div></div>
               <div style={{ width: 1, background: "rgba(0,0,0,0.1)" }} />
-              <div>
-                <div style={{ fontSize: 11, color: "#546e7a", fontWeight: 700 }}>{remaining >= 0 ? "REMAINING" : "OVER BY"}</div>
-                <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: remaining >= 0 ? "#2e7d32" : "#c62828" }}>{fmt(Math.abs(remaining))}</div>
-              </div>
+              <div><div style={{ fontSize: 11, color: "#546e7a", fontWeight: 700 }}>{remaining >= 0 ? "REMAINING" : "OVER BY"}</div><div style={{ fontFamily: "'Playfair Display',serif", fontSize: 26, color: remaining >= 0 ? "#2e7d32" : "#c62828" }}>{fmt(Math.abs(remaining))}</div></div>
             </div>
           </div>
 
           <div style={{ ...S.label, marginTop: 4 }}>✅ CONFIRMED COSTS</div>
-          <div style={S.budgetCard("#1565c0")}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>✈️ Flights</span>
-              <span style={{ fontWeight: 800, color: "#1565c0", fontSize: 15 }}>{fmt(flightsTotal)}</span>
-            </div>
-            {flights.filter((f) => parseFloat(f.price) > 0).map((f) => (
-              <div key={f.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}>
-                <span>{f.flight_number} {f.from_location} → {f.to_location}</span>
-                <span style={{ fontWeight: 700 }}>{fmt(f.price)}</span>
-              </div>
-            ))}
-            {flights.filter((f) => parseFloat(f.price) > 0).length === 0 && (
-              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No prices added yet</div>
-            )}
-          </div>
+          <div style={S.budgetCard("#1565c0")}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>✈️ Flights</span><span style={{ fontWeight: 800, color: "#1565c0", fontSize: 15 }}>{fmt(flightsTotal)}</span></div>{flights.filter((f) => parseFloat(f.price) > 0).map((f) => (<div key={f.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}><span>{f.flight_number} {f.from_location} → {f.to_location}</span><span style={{ fontWeight: 700 }}>{fmt(f.price)}</span></div>))}{flights.filter((f) => parseFloat(f.price) > 0).length === 0 && <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No prices added yet</div>}</div>
 
-          <div style={S.budgetCard("#6a1b9a")}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>🏨 Lodging</span>
-              <span style={{ fontWeight: 800, color: "#6a1b9a", fontSize: 15 }}>{fmt(hotelsTotal)}</span>
-            </div>
-            {hotels.map((h) => {
-              const nights = nightsBetween(h.check_in, h.check_out);
-              const total = nights * (parseFloat(h.price_per_night) || 0);
-              return (
-                <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}>
-                  <span>{h.name} {nights > 0 ? `(${nights}n)` : ""}</span>
-                  <span style={{ fontWeight: 700 }}>{total > 0 ? fmt(total) : "—"}</span>
-                </div>
-              );
-            })}
-            {hotels.length === 0 && <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No hotels added yet</div>}
-          </div>
+          <div style={S.budgetCard("#6a1b9a")}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>🏨 Lodging</span><span style={{ fontWeight: 800, color: "#6a1b9a", fontSize: 15 }}>{fmt(hotelsTotal)}</span></div>{hotels.map((h) => { const nights = nightsBetween(h.check_in, h.check_out); const total = nights * (parseFloat(h.price_per_night) || 0); return (<div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}><span>{h.name} {nights > 0 ? `(${nights}n)` : ""}</span><span style={{ fontWeight: 700 }}>{total > 0 ? fmt(total) : "—"}</span></div>); })}{hotels.length === 0 && <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>No hotels added yet</div>}</div>
 
-          <div style={S.budgetCard("#2e7d32")}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>🎟️ Booked Activities</span>
-              <span style={{ fontWeight: 800, color: "#2e7d32", fontSize: 15 }}>{fmt(bookedActivities)}</span>
-            </div>
-            {items.filter((i) => i.is_booked && parseFloat(i.price) > 0).map((i) => (
-              <div key={i.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}>
-                <span>{i.title}</span>
-                <span style={{ fontWeight: 700 }}>{fmt(i.price)}</span>
-              </div>
-            ))}
-            {items.filter((i) => i.is_booked && parseFloat(i.price) > 0).length === 0 && (
-              <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>Mark itinerary items as "Booked"</div>
-            )}
-          </div>
+          <div style={S.budgetCard("#2e7d32")}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><span style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>🎟️ Booked Activities</span><span style={{ fontWeight: 800, color: "#2e7d32", fontSize: 15 }}>{fmt(bookedActivities)}</span></div>{items.filter((i) => i.is_booked && parseFloat(i.price) > 0).map((i) => (<div key={i.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#546e7a", padding: "3px 0" }}><span>{i.title}</span><span style={{ fontWeight: 700 }}>{fmt(i.price)}</span></div>))}{items.filter((i) => i.is_booked && parseFloat(i.price) > 0).length === 0 && <div style={{ fontSize: 12, color: "#90a4ae", fontStyle: "italic" }}>Mark itinerary items as "Booked"</div>}</div>
 
-          <div style={{ ...S.card, background: "#f8f9fa", border: "2px dashed #b0bec5" }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 800, color: "#1a2e35" }}>Confirmed Subtotal</span>
-              <span style={{ fontWeight: 800, fontSize: 16, color: "#1a2e35" }}>{fmt(confirmedTotal)}</span>
-            </div>
-          </div>
+          <div style={{ ...S.card, background: "#f8f9fa", border: "2px dashed #b0bec5" }}><div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontWeight: 800, color: "#1a2e35" }}>Confirmed Subtotal</span><span style={{ fontWeight: 800, fontSize: 16, color: "#1a2e35" }}>{fmt(confirmedTotal)}</span></div></div>
 
           <div style={{ ...S.label, marginTop: 8 }}>🟡 ESTIMATED SPENDING</div>
-          <button style={{ ...S.btn("#f4a261"), marginBottom: 10 }} onClick={() => { setForm({ category: ESTIMATE_CATEGORIES[0], days: 1, daily_amount: 0 }); setShowModal("estimate"); }}>
-            + Add Estimate
-          </button>
+          <button style={{ ...S.btn("#f4a261"), marginBottom: 10 }} onClick={() => { setForm({ category: ESTIMATE_CATEGORIES[0], days: 1, daily_amount: 0 }); setShowModal("estimate"); }}>+ Add Estimate</button>
+          {estimates.map((est) => { const lineTotal = (parseFloat(est.daily_amount) || 0) * (parseInt(est.days) || 1); return (<div key={est.id} style={S.budgetCard("#f4a261")}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}><div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>{est.label}</div><div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>{fmt(est.daily_amount)}/day × {est.days} day{est.days !== 1 ? "s" : ""} = {fmt(lineTotal)}</div><span style={S.chip("#f4a261")}>{est.category}</span></div><div style={{ display: "flex", gap: 4 }}><button style={S.btnSm("#94a3b8")} onClick={() => openEdit("estimate", est)}>✏️</button><button style={S.del} onClick={() => deleteRecord("budget_estimates", est.id)}>×</button></div></div></div>); })}
+          {estimates.length === 0 && <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic" }}>Add daily estimates for things like food, gas, activities you haven't booked</div>}
 
-          {estimates.map((est) => {
-            const lineTotal = (parseFloat(est.daily_amount) || 0) * (parseInt(est.days) || 1);
-            return (
-              <div key={est.id} style={S.budgetCard("#f4a261")}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1a2e35" }}>{est.label}</div>
-                    <div style={{ fontSize: 11, color: "#78909c", marginTop: 2 }}>
-                      {fmt(est.daily_amount)}/day × {est.days} day{est.days !== 1 ? "s" : ""} = {fmt(lineTotal)}
-                    </div>
-                    <span style={S.chip("#f4a261")}>{est.category}</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button style={S.btnSm("#94a3b8")} onClick={() => openEdit("estimate", est)}>✏️</button>
-                    <button style={S.del} onClick={() => deleteRecord("budget_estimates", est.id)}>×</button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {estimates.length === 0 && (
-            <div style={{ ...S.card, textAlign: "center", color: "#90a4ae", fontSize: 13, fontStyle: "italic" }}>
-              Add daily estimates for things like food, gas, activities you haven't booked
-            </div>
-          )}
-
-          <div style={{ ...S.card, background: "#fff8e1", border: "2px dashed #ffb300", marginTop: 4 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 800, color: "#1a2e35" }}>Estimates Subtotal</span>
-              <span style={{ fontWeight: 800, fontSize: 16, color: "#e65100" }}>{fmt(estimatesTotal)}</span>
-            </div>
-          </div>
+          <div style={{ ...S.card, background: "#fff8e1", border: "2px dashed #ffb300", marginTop: 4 }}><div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontWeight: 800, color: "#1a2e35" }}>Estimates Subtotal</span><span style={{ fontWeight: 800, fontSize: 16, color: "#e65100" }}>{fmt(estimatesTotal)}</span></div></div>
 
           <div style={{ ...S.card, background: "linear-gradient(135deg,#005f73,#0a9396)", marginTop: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 800, color: "#fff", fontSize: 16 }}>💰 Grand Total</span>
-              <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, color: "#fff" }}>{fmt(grandTotal)}</span>
-            </div>
-            {tripBudget > 0 && (
-              <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(255,255,255,0.15)", borderRadius: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", color: remaining >= 0 ? "#a7f3d0" : "#fca5a5" }}>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{remaining >= 0 ? "Still have" : "Over budget by"}</span>
-                  <span style={{ fontSize: 16, fontWeight: 800 }}>{fmt(Math.abs(remaining))}</span>
-                </div>
-              </div>
-            )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontWeight: 800, color: "#fff", fontSize: 16 }}>💰 Grand Total</span><span style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, color: "#fff" }}>{fmt(grandTotal)}</span></div>
+            {tripBudget > 0 && <div style={{ marginTop: 8, padding: "8px 10px", background: "rgba(255,255,255,0.15)", borderRadius: 10 }}><div style={{ display: "flex", justifyContent: "space-between", color: remaining >= 0 ? "#a7f3d0" : "#fca5a5" }}><span style={{ fontSize: 13, fontWeight: 700 }}>{remaining >= 0 ? "Still have" : "Over budget by"}</span><span style={{ fontSize: 16, fontWeight: 800 }}>{fmt(Math.abs(remaining))}</span></div></div>}
           </div>
           <div style={{ height: 16 }} />
         </div>
       )}
 
       {/* MODALS */}
-      {showModal === "day" && (
-        <Modal onClose={closeModal}>
-          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT DAY" : "ADD DAY"}</div>
-          <input style={S.input} type="date" value={form.date || ""} onChange={f("date")} />
-          <input style={S.input} placeholder="Location (e.g. Nadi, Fiji)" value={form.location || ""} onChange={f("location")} />
-          <input style={S.input} placeholder="Notes (optional)" value={form.notes || ""} onChange={f("notes")} />
-          <button style={S.btn()} onClick={saveDay}>{editItem ? "Save Changes" : "Add Day"}</button>
-          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
-        </Modal>
-      )}
+      {showModal === "day" && <Modal onClose={closeModal}><div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT DAY" : "ADD DAY"}</div><input style={S.input} type="date" value={form.date || ""} onChange={f("date")} /><input style={S.input} placeholder="Location (e.g. Nadi, Fiji)" value={form.location || ""} onChange={f("location")} /><input style={S.input} placeholder="Notes (optional)" value={form.notes || ""} onChange={f("notes")} /><button style={S.btn()} onClick={saveDay}>{editItem ? "Save Changes" : "Add Day"}</button><button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button></Modal>}
 
-      {showModal === "item" && (
-        <Modal onClose={closeModal}>
-          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ACTIVITY" : "ADD ACTIVITY"}</div>
-          <select style={S.select} value={form.category || ACTIVITY_CATEGORIES[0]} onChange={f("category")}>
-            {ACTIVITY_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <input style={S.input} placeholder="Title *" value={form.title || ""} onChange={f("title")} />
-          <input style={S.input} placeholder="Details / notes" value={form.details || ""} onChange={f("details")} />
-          <input style={S.input} type="time" value={form.time || ""} onChange={f("time")} />
-          {hasFullAccess && (
-            <>
-              <div style={S.label}>PRICE</div>
-              <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-                <input type="number" min="0" step="0.01" placeholder="0" value={form.price || ""} onChange={f("price")} style={{ ...S.priceInput, paddingLeft: 24 }} />
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                <input type="checkbox" id="is_booked" checked={form.is_booked === true || form.is_booked === "true"} onChange={(e) => setForm((p) => ({ ...p, is_booked: e.target.checked }))} style={{ accentColor: "#0a9396" }} />
-                <label htmlFor="is_booked" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Booked / confirmed price</label>
-              </div>
-            </>
-          )}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
-            <input type="checkbox" id="confirmed" checked={form.confirmed === true || form.confirmed === "true"} onChange={(e) => setForm((p) => ({ ...p, confirmed: e.target.checked }))} style={{ accentColor: "#0a9396" }} />
-            <label htmlFor="confirmed" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Mark as done / completed</label>
-          </div>
-          <button style={S.btn()} onClick={saveItem}>{editItem ? "Save Changes" : "Add Activity"}</button>
-          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
-        </Modal>
-      )}
+      {showModal === "item" && <Modal onClose={closeModal}><div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ACTIVITY" : "ADD ACTIVITY"}</div><select style={S.select} value={form.category || ACTIVITY_CATEGORIES[0]} onChange={f("category")}>{ACTIVITY_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><input style={S.input} placeholder="Title *" value={form.title || ""} onChange={f("title")} /><input style={S.input} placeholder="Details / notes" value={form.details || ""} onChange={f("details")} /><input style={S.input} type="time" value={form.time || ""} onChange={f("time")} />{hasFullAccess && (<><div style={S.label}>PRICE</div><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span><input type="number" min="0" step="0.01" placeholder="0" value={form.price || ""} onChange={f("price")} style={{ ...S.priceInput, paddingLeft: 24 }} /></div><div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}><input type="checkbox" id="is_booked" checked={form.is_booked === true || form.is_booked === "true"} onChange={(e) => setForm((p) => ({ ...p, is_booked: e.target.checked }))} style={{ accentColor: "#0a9396" }} /><label htmlFor="is_booked" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Booked / confirmed price</label></div></>)}<div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}><input type="checkbox" id="confirmed" checked={form.confirmed === true || form.confirmed === "true"} onChange={(e) => setForm((p) => ({ ...p, confirmed: e.target.checked }))} style={{ accentColor: "#0a9396" }} /><label htmlFor="confirmed" style={{ fontSize: 13, color: "#1a2e35", fontWeight: 700 }}>Mark as done / completed</label></div><button style={S.btn()} onClick={saveItem}>{editItem ? "Save Changes" : "Add Activity"}</button><button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button></Modal>}
 
-      {showModal === "flight" && (
-        <Modal onClose={closeModal}>
-          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT FLIGHT" : "ADD FLIGHT"}</div>
-          <input style={S.input} placeholder="Flight number * (e.g. AA1234)" value={form.flight_number || ""} onChange={f("flight_number")} />
-          <input style={S.input} placeholder="Airline" value={form.airline || ""} onChange={f("airline")} />
-          <input style={S.input} placeholder="From (e.g. LAX)" value={form.from_location || ""} onChange={f("from_location")} />
-          <input style={S.input} placeholder="To (e.g. NAN - Nadi)" value={form.to_location || ""} onChange={f("to_location")} />
-          <input style={S.input} placeholder="Departure (date & time)" value={form.departure || ""} onChange={f("departure")} />
-          <input style={S.input} placeholder="Arrival (date & time)" value={form.arrival || ""} onChange={f("arrival")} />
-          {hasFullAccess && (
-            <>
-              <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
-              <div style={S.label}>TICKET PRICE</div>
-              <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-                <input type="number" min="0" step="0.01" placeholder="0" value={form.price || ""} onChange={f("price")} style={{ ...S.priceInput, paddingLeft: 24 }} />
-              </div>
-            </>
-          )}
-          <button style={S.btn()} onClick={saveFlight}>{editItem ? "Save Changes" : "Add Flight"}</button>
-          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
-        </Modal>
-      )}
+      {showModal === "flight" && <Modal onClose={closeModal}><div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT FLIGHT" : "ADD FLIGHT"}</div><input style={S.input} placeholder="Flight number * (e.g. AA1234)" value={form.flight_number || ""} onChange={f("flight_number")} /><input style={S.input} placeholder="Airline" value={form.airline || ""} onChange={f("airline")} /><input style={S.input} placeholder="From (e.g. LAX)" value={form.from_location || ""} onChange={f("from_location")} /><input style={S.input} placeholder="To (e.g. NAN - Nadi)" value={form.to_location || ""} onChange={f("to_location")} /><input style={S.input} placeholder="Departure (date & time)" value={form.departure || ""} onChange={f("departure")} /><input style={S.input} placeholder="Arrival (date & time)" value={form.arrival || ""} onChange={f("arrival")} />{hasFullAccess && (<><input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} /><div style={S.label}>TICKET PRICE</div><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span><input type="number" min="0" step="0.01" placeholder="0" value={form.price || ""} onChange={f("price")} style={{ ...S.priceInput, paddingLeft: 24 }} /></div></>)}<button style={S.btn()} onClick={saveFlight}>{editItem ? "Save Changes" : "Add Flight"}</button><button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button></Modal>}
 
-      {showModal === "hotel" && (
-        <Modal onClose={closeModal}>
-          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT HOTEL" : "ADD HOTEL / AIRBNB"}</div>
-          <input style={S.input} placeholder="Name * (e.g. Airbnb Queenstown)" value={form.name || ""} onChange={f("name")} />
-          <input style={S.input} placeholder="Location" value={form.location || ""} onChange={f("location")} />
-          <div style={S.label}>CHECK-IN</div>
-          <input style={S.input} type="date" value={form.check_in || ""} onChange={f("check_in")} />
-          <div style={S.label}>CHECK-OUT</div>
-          <input style={S.input} type="date" value={form.check_out || ""} onChange={f("check_out")} />
-          {form.check_in && form.check_out && (
-            <div style={{ fontSize: 12, color: "#0a9396", fontWeight: 700, marginBottom: 8 }}>
-              {nightsBetween(form.check_in, form.check_out)} nights
-            </div>
-          )}
-          <input style={S.input} placeholder="Notes" value={form.notes || ""} onChange={f("notes")} />
-          {hasFullAccess && (
-            <>
-              <input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} />
-              <div style={S.label}>PRICE PER NIGHT</div>
-              <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-                <input type="number" min="0" step="0.01" placeholder="0" value={form.price_per_night || ""} onChange={f("price_per_night")} style={{ ...S.priceInput, paddingLeft: 24 }} />
-              </div>
-              {form.price_per_night && form.check_in && form.check_out && (
-                <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>
-                  Total: {fmt(nightsBetween(form.check_in, form.check_out) * parseFloat(form.price_per_night))}
-                </div>
-              )}
-            </>
-          )}
-          <button style={S.btn()} onClick={saveHotel}>{editItem ? "Save Changes" : "Add Hotel"}</button>
-          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
-        </Modal>
-      )}
+      {showModal === "hotel" && <Modal onClose={closeModal}><div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT HOTEL" : "ADD HOTEL / AIRBNB"}</div><input style={S.input} placeholder="Name * (e.g. Airbnb Queenstown)" value={form.name || ""} onChange={f("name")} /><input style={S.input} placeholder="Location" value={form.location || ""} onChange={f("location")} /><div style={S.label}>CHECK-IN</div><input style={S.input} type="date" value={form.check_in || ""} onChange={f("check_in")} /><div style={S.label}>CHECK-OUT</div><input style={S.input} type="date" value={form.check_out || ""} onChange={f("check_out")} />{form.check_in && form.check_out && <div style={{ fontSize: 12, color: "#0a9396", fontWeight: 700, marginBottom: 8 }}>{nightsBetween(form.check_in, form.check_out)} nights</div>}<input style={S.input} placeholder="Notes" value={form.notes || ""} onChange={f("notes")} />{hasFullAccess && (<><input style={S.input} placeholder="Confirmation number" value={form.confirmation || ""} onChange={f("confirmation")} /><div style={S.label}>PRICE PER NIGHT</div><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span><input type="number" min="0" step="0.01" placeholder="0" value={form.price_per_night || ""} onChange={f("price_per_night")} style={{ ...S.priceInput, paddingLeft: 24 }} /></div>{form.price_per_night && form.check_in && form.check_out && <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>Total: {fmt(nightsBetween(form.check_in, form.check_out) * parseFloat(form.price_per_night))}</div>}</>)}<button style={S.btn()} onClick={saveHotel}>{editItem ? "Save Changes" : "Add Hotel"}</button><button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button></Modal>}
 
-      {showModal === "packing" && (
-        <Modal onClose={closeModal}>
-          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ITEM" : "ADD PACKING ITEM"}</div>
-          <input style={S.input} placeholder="Item name *" value={form.item || ""} onChange={f("item")} />
-          <select style={S.select} value={form.category || "Misc"} onChange={f("category")}>
-            {PACKING_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <button style={S.btn()} onClick={savePacking}>{editItem ? "Save Changes" : "Add Item"}</button>
-          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
-        </Modal>
-      )}
+      {showModal === "packing" && <Modal onClose={closeModal}><div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ITEM" : "ADD PACKING ITEM"}</div><input style={S.input} placeholder="Item name *" value={form.item || ""} onChange={f("item")} /><select style={S.select} value={form.category || "Misc"} onChange={f("category")}>{PACKING_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><button style={S.btn()} onClick={savePacking}>{editItem ? "Save Changes" : "Add Item"}</button><button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button></Modal>}
 
-      {showModal === "estimate" && (
-        <Modal onClose={closeModal}>
-          <div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ESTIMATE" : "ADD SPENDING ESTIMATE"}</div>
-          <input style={S.input} placeholder="Label * (e.g. Eating out in Fiji)" value={form.label || ""} onChange={f("label")} />
-          <select style={S.select} value={form.category || ESTIMATE_CATEGORIES[0]} onChange={f("category")}>
-            {ESTIMATE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <div style={S.label}>ESTIMATED AMOUNT PER DAY</div>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span>
-            <input type="number" min="0" step="1" placeholder="0" value={form.daily_amount || ""} onChange={f("daily_amount")} style={{ ...S.priceInput, paddingLeft: 24 }} />
-          </div>
-          <div style={S.label}>NUMBER OF DAYS</div>
-          <input type="number" min="1" placeholder="1" value={form.days || ""} onChange={f("days")} style={S.input} />
-          {form.daily_amount && form.days && (
-            <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>
-              Total for this line: {fmt(parseFloat(form.daily_amount) * parseInt(form.days))}
-            </div>
-          )}
-          <button style={S.btn("#f4a261")} onClick={saveEstimate}>{editItem ? "Save Changes" : "Add Estimate"}</button>
-          <button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button>
-        </Modal>
-      )}
+      {showModal === "estimate" && <Modal onClose={closeModal}><div style={{ ...S.label, marginBottom: 16 }}>{editItem ? "EDIT ESTIMATE" : "ADD SPENDING ESTIMATE"}</div><input style={S.input} placeholder="Label * (e.g. Eating out in Fiji)" value={form.label || ""} onChange={f("label")} /><select style={S.select} value={form.category || ESTIMATE_CATEGORIES[0]} onChange={f("category")}>{ESTIMATE_CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><div style={S.label}>ESTIMATED AMOUNT PER DAY</div><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: 11, color: "#2e7d32", fontWeight: 800, fontSize: 15 }}>$</span><input type="number" min="0" step="1" placeholder="0" value={form.daily_amount || ""} onChange={f("daily_amount")} style={{ ...S.priceInput, paddingLeft: 24 }} /></div><div style={S.label}>NUMBER OF DAYS</div><input type="number" min="1" placeholder="1" value={form.days || ""} onChange={f("days")} style={S.input} />{form.daily_amount && form.days && <div style={{ fontSize: 13, color: "#2e7d32", fontWeight: 800, marginBottom: 8 }}>Total for this line: {fmt(parseFloat(form.daily_amount) * parseInt(form.days))}</div>}<button style={S.btn("#f4a261")} onClick={saveEstimate}>{editItem ? "Save Changes" : "Add Estimate"}</button><button style={{ ...S.btn("#94a3b8"), marginTop: 8 }} onClick={closeModal}>Cancel</button></Modal>}
     </div>
   );
 }
 
+// ── ROOT ─────────────────────────────────────────────────────────────────────
 export default function TripPlanner() {
   const [session, setSession] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [currentTripId, setCurrentTripId] = useState(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthChecked(true);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) setCurrentTripId(null);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setAuthChecked(true); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if (!session) setCurrentTripId(null); });
     return () => subscription.unsubscribe();
   }, []);
 
-  if (!authChecked) {
-    return (
-      <div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 48 }}>🌴</div>
-          <div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading…</div>
-        </div>
-      </div>
-    );
-  }
-
+  if (!authChecked) return (<div style={{ ...S.wrap, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 48 }}>🌴</div><div style={{ color: "#0a9396", fontWeight: 700, marginTop: 12 }}>Loading…</div></div></div>);
   if (!session) return <Login />;
-
-  if (!currentTripId) {
-    return <TripsList session={session} onSelectTrip={setCurrentTripId} />;
-  }
-
+  if (!currentTripId) return <TripsList session={session} onSelectTrip={setCurrentTripId} />;
   return <TripDetail tripId={currentTripId} session={session} onBack={() => setCurrentTripId(null)} />;
 }
