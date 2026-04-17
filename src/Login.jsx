@@ -7,31 +7,50 @@ const S = {
     background: "linear-gradient(135deg, #0a9396 0%, #005f73 100%)",
     fontFamily: "'Nunito', sans-serif",
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
   },
+  brand: {
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  brandEmoji: { fontSize: 64, marginBottom: 8 },
+  brandName: {
+    fontFamily: "'Playfair Display', serif",
+    fontSize: 32,
+    color: "#fff",
+    margin: "0 0 4px",
+    letterSpacing: 1,
+  },
+  brandSub: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.6)",
+    fontWeight: 700,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
   card: {
     background: "#fff",
     borderRadius: 20,
-    padding: "32px 24px",
+    padding: "28px 24px",
     width: "100%",
     maxWidth: 380,
     boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
     textAlign: "center",
   },
-  emoji: { fontSize: 56, marginBottom: 8 },
-  title: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 28,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 700,
     color: "#005f73",
-    margin: "0 0 6px",
+    marginBottom: 4,
   },
-  sub: {
+  cardSub: {
     fontSize: 13,
     color: "#78909c",
     fontWeight: 600,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   googleBtn: {
     width: "100%",
@@ -109,7 +128,7 @@ const S = {
 };
 
 export default function Login() {
-  const [mode, setMode] = useState("signin"); // "signin" or "signup"
+  const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState(null);
@@ -147,10 +166,15 @@ export default function Login() {
 
   return (
     <div style={S.wrap}>
+      <div style={S.brand}>
+        <div style={S.brandEmoji}>🌴</div>
+        <h1 style={S.brandName}>Trip Planner</h1>
+        <div style={S.brandSub}>Fuse Apps by TNT Labs</div>
+      </div>
+
       <div style={S.card}>
-        <div style={S.emoji}>🌴</div>
-        <h1 style={S.title}>Trip Planner</h1>
-        <div style={S.sub}>Plan trips with your favorite people</div>
+        <div style={S.cardTitle}>Welcome</div>
+        <div style={S.cardSub}>Plan trips with your favorite people</div>
 
         <button style={S.googleBtn} onClick={handleGoogle} disabled={loading}>
           <svg width="18" height="18" viewBox="0 0 18 18">
