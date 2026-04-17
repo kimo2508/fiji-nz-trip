@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase";
 import Login from "./Login";
 import TripsList from "./TripsList";
+import { TimezoneClocks, CurrencyConverter, DestinationSwitcher } from "./TripWidgets";
 
 const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
 const ACTIVITY_CATEGORIES = ["🍽️ Restaurant", "🏄 Activity", "🗺️ Sightseeing", "🚗 Transport", "📝 Note"];
@@ -58,11 +59,6 @@ const S = {
   liveDot: (live) => ({ width: 7, height: 7, borderRadius: "50%", background: live ? "#4ade80" : "#94a3b8", boxShadow: live ? "0 0 6px #4ade80" : "none" }),
   backBtn: { background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif", marginBottom: 10 },
   accessBadge: (bg, fg) => ({ display: "inline-block", background: bg, color: fg, padding: "3px 10px", borderRadius: 10, fontSize: 10, fontWeight: 700, letterSpacing: 1, marginTop: 6 }),
-  clockRow: { display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" },
-  clockBox: { background: "rgba(255,255,255,0.12)", borderRadius: 10, padding: "8px 12px", flex: "1 1 auto", minWidth: 100 },
-  clockLabel: { fontSize: 8, color: "rgba(255,255,255,0.6)", fontWeight: 700, letterSpacing: 1, marginBottom: 2 },
-  clockTime: { fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#fff", lineHeight: 1.2 },
-  clockSub: { fontSize: 10, color: "rgba(255,255,255,0.5)" },
   statRow: { marginTop: 12, display: "flex", gap: 10 },
   stat: { background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px 12px", textAlign: "center", flex: 1 },
   statNum: { fontFamily: "'Playfair Display',serif", fontSize: 24, color: "#fff", lineHeight: 1 },
@@ -85,10 +81,6 @@ const S = {
   addedBy: (bg, fg) => ({ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 700, background: bg, color: fg, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }),
   budgetCard: (accent) => ({ background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 10, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", borderLeft: `4px solid ${accent}` }),
   totalBanner: (bg, text) => ({ background: bg, borderRadius: 16, padding: "16px 18px", marginBottom: 12, textAlign: "center", color: text }),
-  currencyCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", border: "1.5px solid #e0f2f1" },
-  currencyRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 8 },
-  currencyResult: { fontSize: 20, fontWeight: 800, color: "#005f73", fontFamily: "'Playfair Display',serif" },
-  currencyLabel: { fontSize: 11, color: "#78909c", fontWeight: 600 },
 };
 
 function Modal({ onClose, children }) {
@@ -106,83 +98,12 @@ function AddedBy({ userId, userMap }) {
   return <span style={S.addedBy(color.bg, color.fg)}>👤 {name}</span>;
 }
 
-// ── LIVE TIMEZONE CLOCK ──────────────────────────────────────────────────────
-function DestinationClock({ timezone, label }) {
-  const [time, setTime] = useState("");
-
-  useEffect(() => {
-    if (!timezone) return;
-    const tick = () => {
-      try {
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString("en-US", { timeZone: timezone, hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
-        const dateStr = now.toLocaleDateString("en-US", { timeZone: timezone, weekday: "short", month: "short", day: "numeric" });
-        setTime(`${timeStr}|${dateStr}`);
-      } catch (e) {
-        setTime("--");
-      }
-    };
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [timezone]);
-
-  if (!timezone || !time) return null;
-  const [t, d] = time.split("|");
-
-  return (
-    <div style={S.clockBox}>
-      <div style={S.clockLabel}>{label || timezone}</div>
-      <div style={S.clockTime}>{t}</div>
-      <div style={S.clockSub}>{d}</div>
-    </div>
-  );
-}
-
-// ── CURRENCY CONVERTER ───────────────────────────────────────────────────────
-function CurrencyConverter({ currencyCode, rate }) {
-  const [amount, setAmount] = useState("100");
-  if (!currencyCode || currencyCode === "USD" || !rate) return null;
-
-  const usdAmount = parseFloat(amount) || 0;
-  const converted = (usdAmount * rate).toFixed(2);
-  const reverseConverted = (usdAmount / rate).toFixed(2);
-
-  return (
-    <div style={S.currencyCard}>
-      <div style={S.label}>💱 CURRENCY CONVERTER</div>
-      <div style={S.currencyRow}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <span style={{ position: "absolute", left: 10, top: 10, fontSize: 13, color: "#78909c", fontWeight: 700 }}>$</span>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            style={{ ...S.input, paddingLeft: 24, marginBottom: 0 }}
-          />
-        </div>
-        <span style={{ fontSize: 13, color: "#78909c", fontWeight: 700 }}>USD</span>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={S.currencyResult}>{parseFloat(converted).toLocaleString()} {currencyCode}</div>
-          <div style={S.currencyLabel}>1 USD = {rate.toFixed(4)} {currencyCode}</div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 12, color: "#546e7a", fontWeight: 600 }}>{currencyCode} → USD</div>
-          <div style={{ fontSize: 12, color: "#78909c" }}>1 {currencyCode} = ${(1 / rate).toFixed(4)}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── TRIP DETAIL ──────────────────────────────────────────────────────────────
 function TripDetail({ tripId, session, onBack }) {
   const [tab, setTab] = useState("home");
   const [trip, setTrip] = useState(null);
   const [destination, setDestination] = useState(null);
-  const [exchangeRate, setExchangeRate] = useState(null);
+  const [activeDest, setActiveDest] = useState(null); // for destination switcher
   const [accessLevel, setAccessLevel] = useState("editor");
   const [userMap, setUserMap] = useState({});
   const [days, setDays] = useState([]);
@@ -216,20 +137,6 @@ function TripDetail({ tripId, session, onBack }) {
     return meta.full_name || meta.name || (user.email ? user.email.split("@")[0] : "User");
   };
 
-  // Fetch exchange rate for destination currency (cached per currency)
-  const fetchExchangeRate = useCallback(async (currCode) => {
-    if (!currCode || currCode === "USD") { setExchangeRate(null); return; }
-    try {
-      const resp = await fetch(`https://open.er-api.com/v6/latest/USD`);
-      const data = await resp.json();
-      if (data.result === "success" && data.rates[currCode]) {
-        setExchangeRate(data.rates[currCode]);
-      }
-    } catch (e) {
-      console.error("Exchange rate fetch error:", e);
-    }
-  }, []);
-
   const load = useCallback(async () => {
     // Load trip WITH destination data
     const tripResp = await supabase
@@ -242,6 +149,7 @@ function TripDetail({ tripId, session, onBack }) {
     setTrip(loadedTrip);
     const dest = loadedTrip?.destination || null;
     setDestination(dest);
+    if (!activeDest && dest) setActiveDest(dest);
 
     let level = "editor";
     if (loadedTrip?.owner_id === currentUserId) {
@@ -319,16 +227,11 @@ function TripDetail({ tripId, session, onBack }) {
     setLoading(false);
   }, [tripId, currentUserId, session.user]);
 
-  // Initial load + fetch exchange rate
+  // Initial load
   useEffect(() => {
     setLoading(true);
     load();
   }, [load]);
-
-  // Fetch exchange rate whenever destination changes
-  useEffect(() => {
-    if (destination?.currency_code) fetchExchangeRate(destination.currency_code);
-  }, [destination?.currency_code, fetchExchangeRate]);
 
   // ── REALTIME ───────────────────────────────────────────────────────────────
   const reloadTimer = useRef(null);
@@ -387,9 +290,7 @@ function TripDetail({ tripId, session, onBack }) {
   const tripName = trip?.name || "My Trip";
   const tripDates = trip ? formatTripDates(trip.start_date, trip.end_date) : "";
   const tripStart = trip?.start_date;
-  const destTimezone = destination?.timezone;
-  const destCurrency = destination?.currency_code;
-  const destName = destination?.name;
+  const viewingDest = activeDest || destination;
 
   const tabs = [{ id: "home", l: "🏠 HOME" }, { id: "itinerary", l: "📅 ITINERARY" }, { id: "flights", l: "✈️ FLIGHTS" }, { id: "hotels", l: "🏨 HOTELS" }];
   if (hasFullAccess) { tabs.push({ id: "packing", l: "🎒 PACKING" }); tabs.push({ id: "budget", l: "💰 BUDGET" }); }
@@ -408,11 +309,9 @@ function TripDetail({ tripId, session, onBack }) {
         {accessLevel === "co-owner" && <div style={S.accessBadge("rgba(255,255,255,0.25)", "#fff")}>⭐ CO-OWNER</div>}
         {accessLevel === "editor" && <div style={S.accessBadge("rgba(255,255,255,0.2)", "#fff")}>👥 SHARED WITH YOU</div>}
 
-        {/* Timezone clocks */}
-        <div style={S.clockRow}>
-          {destTimezone && <DestinationClock timezone={destTimezone} label={`📍 ${destName || "DESTINATION"}`} />}
-          <DestinationClock timezone={Intl.DateTimeFormat().resolvedOptions().timeZone} label="🏠 YOUR TIME" />
-        </div>
+        {/* Destination switcher + timezone clocks */}
+        <DestinationSwitcher tripId={tripId} currentDest={viewingDest} onSwitch={setActiveDest} />
+        <TimezoneClocks destination={viewingDest} />
 
         <div style={S.statRow}>
           {displayStats.map((s, i) => (
@@ -430,8 +329,8 @@ function TripDetail({ tripId, session, onBack }) {
       {tab === "home" && (
         <div style={S.sec}>
           {/* Currency converter */}
-          {destCurrency && destCurrency !== "USD" && exchangeRate && (
-            <CurrencyConverter currencyCode={destCurrency} rate={exchangeRate} />
+          {viewingDest?.currency_code && (
+            <CurrencyConverter destCurrencyCode={viewingDest.currency_code} />
           )}
 
           {hasFullAccess && (
