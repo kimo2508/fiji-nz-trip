@@ -138,6 +138,20 @@ const S = {
     cursor: "pointer",
     color: "#0a9396",
   },
+  deleteBtn: {
+    background: "none",
+    border: "1px solid #e0e0e0",
+    borderRadius: 6,
+    padding: "3px 8px",
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#b0bec5",
+    cursor: "pointer",
+    fontFamily: "'Nunito', sans-serif",
+    letterSpacing: 0.5,
+    transition: "all 0.15s",
+    marginTop: 8,
+  },
   empty: {
     textAlign: "center",
     padding: "40px 20px",
@@ -154,6 +168,7 @@ export default function TripsList({ session, onSelectTrip }) {
   const [showNewTrip, setShowNewTrip] = useState(false);
   const [shareTrip, setShareTrip] = useState(null);
   const [collabTripIds, setCollabTripIds] = useState(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const loadTrips = async () => {
     setLoading(true);
@@ -187,12 +202,9 @@ export default function TripsList({ session, onSelectTrip }) {
       sharedTrips = data || [];
     }
 
-    // Mark collab-only trips so we can show "SHARED WITH YOU" badge
     const collabSet = new Set(sharedTrips.map((t) => t.id));
     setCollabTripIds(collabSet);
 
-    // Mark collab status on accepted_at in trip_collaborators for the current user
-    // (fire and forget - update accepted_at for any row matching this user that isn't yet accepted)
     if (collabRows && collabRows.length > 0) {
       await supabase
         .from("trip_collaborators")
@@ -215,6 +227,17 @@ export default function TripsList({ session, onSelectTrip }) {
     setShowNewTrip(false);
     loadTrips();
     onSelectTrip(tripId);
+  };
+
+  const handleDeleteTrip = async (tripId) => {
+    // Delete related data first (cascade isn't set up via FK for all tables)
+    const tables = ["itinerary_items", "itinerary_days", "flights", "hotels", "packing_items", "budget_estimates", "trip_budget", "trip_collaborators"];
+    for (const table of tables) {
+      await supabase.from(table).delete().eq("trip_id", tripId);
+    }
+    await supabase.from("trips").delete().eq("id", tripId);
+    setConfirmDelete(null);
+    loadTrips();
   };
 
   const userEmail = session?.user?.email || "";
@@ -246,12 +269,13 @@ export default function TripsList({ session, onSelectTrip }) {
             const isActive = days <= 0 && daysUntil(trip.end_date) >= 0;
             const isShared = collabTripIds.has(trip.id);
             const isOwner = !isShared;
+            const isConfirming = confirmDelete === trip.id;
 
             return (
               <div
                 key={trip.id}
                 style={S.tripCard}
-                onClick={() => onSelectTrip(trip.id)}
+                onClick={() => { if (!isConfirming) onSelectTrip(trip.id); }}
               >
                 {isOwner && (
                   <button
@@ -276,6 +300,73 @@ export default function TripsList({ session, onSelectTrip }) {
                   <div style={S.countdown}>
                     <div style={S.countdownNum}>{days}</div>
                     <div style={S.countdownLabel}>DAYS TO GO</div>
+                  </div>
+                )}
+
+                {/* Delete button — only for trip owners */}
+                {isOwner && !isConfirming && (
+                  <button
+                    style={S.deleteBtn}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDelete(trip.id);
+                    }}
+                  >
+                    Delete trip
+                  </button>
+                )}
+
+                {/* Confirmation row — replaces delete button when tapped */}
+                {isOwner && isConfirming && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: "10px 12px",
+                      background: "#fdecea",
+                      borderRadius: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span style={{ fontSize: 12, color: "#c62828", fontWeight: 700, flex: 1 }}>
+                      Delete "{trip.name}" and all its data?
+                    </span>
+                    <button
+                      style={{
+                        background: "#c62828",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "6px 14px",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        fontFamily: "'Nunito', sans-serif",
+                        whiteSpace: "nowrap",
+                      }}
+                      onClick={() => handleDeleteTrip(trip.id)}
+                    >
+                      Yes, delete
+                    </button>
+                    <button
+                      style={{
+                        background: "#fff",
+                        color: "#546e7a",
+                        border: "1px solid #e0e0e0",
+                        borderRadius: 8,
+                        padding: "6px 12px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        fontFamily: "'Nunito', sans-serif",
+                        whiteSpace: "nowrap",
+                      }}
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      Cancel
+                    </button>
                   </div>
                 )}
               </div>
