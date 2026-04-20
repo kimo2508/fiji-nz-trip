@@ -1,6 +1,68 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
+const COMMON_TIMEZONES = [
+  { label: "Hawaii (HST)", value: "Pacific/Honolulu" },
+  { label: "Alaska (AKST)", value: "America/Anchorage" },
+  { label: "Pacific (PST/PDT)", value: "America/Los_Angeles" },
+  { label: "Mountain (MST/MDT)", value: "America/Denver" },
+  { label: "Arizona (MST)", value: "America/Phoenix" },
+  { label: "Central (CST/CDT)", value: "America/Chicago" },
+  { label: "Eastern (EST/EDT)", value: "America/New_York" },
+  { label: "Atlantic (AST)", value: "America/Puerto_Rico" },
+  { label: "London (GMT/BST)", value: "Europe/London" },
+  { label: "Paris / Rome (CET)", value: "Europe/Paris" },
+  { label: "Athens / Istanbul (EET)", value: "Europe/Athens" },
+  { label: "Dubai (GST)", value: "Asia/Dubai" },
+  { label: "India (IST)", value: "Asia/Kolkata" },
+  { label: "Bangkok / Vietnam (ICT)", value: "Asia/Bangkok" },
+  { label: "Singapore / Malaysia (SGT)", value: "Asia/Singapore" },
+  { label: "Philippines (PHT)", value: "Asia/Manila" },
+  { label: "China / Taiwan (CST)", value: "Asia/Shanghai" },
+  { label: "Korea (KST)", value: "Asia/Seoul" },
+  { label: "Japan (JST)", value: "Asia/Tokyo" },
+  { label: "Australia East (AEST)", value: "Australia/Sydney" },
+  { label: "New Zealand (NZST)", value: "Pacific/Auckland" },
+  { label: "Fiji (FJT)", value: "Pacific/Fiji" },
+  { label: "Mexico City (CST)", value: "America/Mexico_City" },
+  { label: "São Paulo (BRT)", value: "America/Sao_Paulo" },
+  { label: "Buenos Aires (ART)", value: "America/Argentina/Buenos_Aires" },
+];
+
+const COMMON_CURRENCIES = [
+  { code: "USD", label: "USD – US Dollar" },
+  { code: "EUR", label: "EUR – Euro" },
+  { code: "GBP", label: "GBP – British Pound" },
+  { code: "CAD", label: "CAD – Canadian Dollar" },
+  { code: "AUD", label: "AUD – Australian Dollar" },
+  { code: "NZD", label: "NZD – New Zealand Dollar" },
+  { code: "JPY", label: "JPY – Japanese Yen" },
+  { code: "KRW", label: "KRW – South Korean Won" },
+  { code: "TWD", label: "TWD – Taiwan Dollar" },
+  { code: "PHP", label: "PHP – Philippine Peso" },
+  { code: "SGD", label: "SGD – Singapore Dollar" },
+  { code: "MYR", label: "MYR – Malaysian Ringgit" },
+  { code: "THB", label: "THB – Thai Baht" },
+  { code: "VND", label: "VND – Vietnamese Dong" },
+  { code: "IDR", label: "IDR – Indonesian Rupiah" },
+  { code: "INR", label: "INR – Indian Rupee" },
+  { code: "AED", label: "AED – UAE Dirham" },
+  { code: "MXN", label: "MXN – Mexican Peso" },
+  { code: "BRL", label: "BRL – Brazilian Real" },
+  { code: "CRC", label: "CRC – Costa Rican Colón" },
+  { code: "DOP", label: "DOP – Dominican Peso" },
+  { code: "FJD", label: "FJD – Fijian Dollar" },
+  { code: "ZAR", label: "ZAR – South African Rand" },
+  { code: "ISK", label: "ISK – Icelandic Króna" },
+  { code: "CZK", label: "CZK – Czech Koruna" },
+  { code: "AWG", label: "AWG – Aruban Florin" },
+  { code: "XPF", label: "XPF – CFP Franc" },
+  { code: "CHF", label: "CHF – Swiss Franc" },
+  { code: "SEK", label: "SEK – Swedish Krona" },
+  { code: "HKD", label: "HKD – Hong Kong Dollar" },
+  { code: "CNY", label: "CNY – Chinese Yuan" },
+];
+
 const S = {
   overlay: {
     position: "fixed",
@@ -54,6 +116,23 @@ const S = {
     boxSizing: "border-box",
   },
   hint: { fontSize: 11, color: "#78909c", marginTop: 4, fontStyle: "italic" },
+  customBox: {
+    background: "#f8fdfd",
+    border: "1.5px solid #b2dfdb",
+    borderRadius: 12,
+    padding: "14px 14px 6px",
+    marginTop: 8,
+  },
+  customBoxLabel: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: "#005f73",
+    letterSpacing: 1,
+    marginBottom: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+  },
   btn: (color = "#0a9396") => ({
     background: color,
     color: "#fff",
@@ -96,7 +175,10 @@ export default function NewTripModal({ session, onClose, onCreated }) {
   const [destinations, setDestinations] = useState([]);
   const [name, setName] = useState("");
   const [destinationId, setDestinationId] = useState("");
-  const [customDestination, setCustomDestination] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [customCountry, setCustomCountry] = useState("");
+  const [customTimezone, setCustomTimezone] = useState("America/Los_Angeles");
+  const [customCurrency, setCustomCurrency] = useState("USD");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
@@ -124,13 +206,14 @@ export default function NewTripModal({ session, onClose, onCreated }) {
     let finalDestinationId = destinationId || null;
 
     // If user typed a custom destination, create it first
-    if (!finalDestinationId && customDestination.trim()) {
+    if (!finalDestinationId && customName.trim()) {
       const { data: newDest, error: destError } = await supabase
         .from("destinations")
         .insert({
-          name: customDestination.trim(),
-          timezone: "UTC",
-          currency_code: "USD",
+          name: customName.trim(),
+          country: customCountry.trim() || null,
+          timezone: customTimezone,
+          currency_code: customCurrency,
           is_seeded: false,
         })
         .select()
@@ -140,7 +223,7 @@ export default function NewTripModal({ session, onClose, onCreated }) {
         const { data: existing } = await supabase
           .from("destinations")
           .select("id")
-          .eq("name", customDestination.trim())
+          .eq("name", customName.trim())
           .maybeSingle();
         if (existing) {
           finalDestinationId = existing.id;
@@ -176,6 +259,7 @@ export default function NewTripModal({ session, onClose, onCreated }) {
   };
 
   const selectedDest = destinations.find((d) => d.id === destinationId);
+  const showCustomFields = !destinationId;
 
   return (
     <div style={S.overlay} onClick={onClose}>
@@ -197,10 +281,13 @@ export default function NewTripModal({ session, onClose, onCreated }) {
           value={destinationId}
           onChange={(e) => {
             setDestinationId(e.target.value);
-            setCustomDestination("");
+            if (e.target.value) {
+              setCustomName("");
+              setCustomCountry("");
+            }
           }}
         >
-          <option value="">— Select destination —</option>
+          <option value="">— Custom / not listed —</option>
           {destinations.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}{d.country && d.country !== d.name ? `, ${d.country}` : ""}
@@ -208,21 +295,61 @@ export default function NewTripModal({ session, onClose, onCreated }) {
           ))}
         </select>
 
-        {!destinationId && (
-          <>
-            <div style={S.label}>OR TYPE A CUSTOM DESTINATION</div>
-            <input
-              style={S.input}
-              placeholder="e.g. Santa Barbara"
-              value={customDestination}
-              onChange={(e) => setCustomDestination(e.target.value)}
-            />
-          </>
-        )}
-
         {selectedDest && (
           <div style={S.hint}>
             🕐 {selectedDest.timezone} • 💱 {selectedDest.currency_code}
+          </div>
+        )}
+
+        {showCustomFields && (
+          <div style={S.customBox}>
+            <div style={S.customBoxLabel}>📍 Custom Destination</div>
+
+            <div style={S.label}>PLACE NAME</div>
+            <input
+              style={S.input}
+              placeholder="e.g. Manila"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+            />
+
+            <div style={S.label}>COUNTRY</div>
+            <input
+              style={S.input}
+              placeholder="e.g. Philippines"
+              value={customCountry}
+              onChange={(e) => setCustomCountry(e.target.value)}
+            />
+
+            <div style={S.row}>
+              <div style={S.rowCol}>
+                <div style={S.label}>TIMEZONE</div>
+                <select
+                  style={S.select}
+                  value={customTimezone}
+                  onChange={(e) => setCustomTimezone(e.target.value)}
+                >
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={S.rowCol}>
+                <div style={S.label}>CURRENCY</div>
+                <select
+                  style={S.select}
+                  value={customCurrency}
+                  onChange={(e) => setCustomCurrency(e.target.value)}
+                >
+                  {COMMON_CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>{c.code}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div style={S.hint}>
+              These power the timezone clocks and currency converter on your trip
+            </div>
           </div>
         )}
 
