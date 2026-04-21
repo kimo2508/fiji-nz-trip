@@ -1,30 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "./supabase";
+import { C } from "./styles";
 
-const S = {
+const W = {
   clockRow: { display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" },
   clockBox: { background: "rgba(255,255,255,0.12)", borderRadius: 10, padding: "8px 12px", flex: "1 1 auto", minWidth: 100 },
   clockLabel: { fontSize: 8, color: "rgba(255,255,255,0.6)", fontWeight: 700, letterSpacing: 1, marginBottom: 2 },
-  clockTime: { fontFamily: "'Playfair Display',serif", fontSize: 18, color: "#fff", lineHeight: 1.2 },
+  clockTime: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#fff", lineHeight: 1.2, letterSpacing: 1 },
   clockSub: { fontSize: 10, color: "rgba(255,255,255,0.5)" },
-  destSwitcher: { display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" },
-  destBtn: (active) => ({
-    background: active ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)",
-    color: "#fff",
-    border: active ? "1.5px solid rgba(255,255,255,0.5)" : "1.5px solid transparent",
-    borderRadius: 8,
-    padding: "5px 12px",
-    fontSize: 11,
-    fontWeight: 700,
-    cursor: "pointer",
-    fontFamily: "'Nunito', sans-serif",
-    transition: "all 0.15s",
-  }),
-  currencyCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", border: "1.5px solid #e0f2f1" },
-  label: { fontSize: 10, fontWeight: 800, color: "#0a9396", letterSpacing: 1.5, marginBottom: 8 },
-  input: { width: "100%", padding: "10px 12px", border: "1.5px solid #e0f2f1", borderRadius: 10, fontSize: 14, fontFamily: "'Nunito', sans-serif", background: "#f8fdfd", color: "#1a2e35", outline: "none", boxSizing: "border-box" },
+  currencyCard: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.07)", border: `1.5px solid ${C.cardBorder}` },
+  label: { fontSize: 10, fontWeight: 800, color: C.primary, letterSpacing: 1.5, marginBottom: 8 },
+  input: { width: "100%", padding: "10px 12px", border: `1.5px solid ${C.cardBorder}`, borderRadius: 10, fontSize: 14, fontFamily: "'DM Sans', sans-serif", background: C.iceInput, color: C.text, outline: "none", boxSizing: "border-box" },
   swapBtn: {
-    background: "#0a9396",
+    background: C.primary,
     color: "#fff",
     border: "none",
     borderRadius: "50%",
@@ -41,17 +29,17 @@ const S = {
   currencyRow: { display: "flex", gap: 8, alignItems: "center", marginBottom: 8 },
   currencySelect: {
     padding: "8px 10px",
-    border: "1.5px solid #e0f2f1",
+    border: `1.5px solid ${C.cardBorder}`,
     borderRadius: 10,
     fontSize: 13,
     fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
-    background: "#f8fdfd",
-    color: "#1a2e35",
+    fontFamily: "'DM Sans', sans-serif",
+    background: C.iceInput,
+    color: C.text,
     outline: "none",
     minWidth: 80,
   },
-  rateInfo: { fontSize: 11, color: "#78909c", fontWeight: 600, marginTop: 6, textAlign: "center" },
+  rateInfo: { fontSize: 11, color: C.textLight, fontWeight: 600, marginTop: 6, textAlign: "center" },
 };
 
 // ── LIVE CLOCK ───────────────────────────────────────────────────────────────
@@ -79,10 +67,10 @@ function DestinationClock({ timezone, label }) {
   const [t, d] = time.split("|");
 
   return (
-    <div style={S.clockBox}>
-      <div style={S.clockLabel}>{label}</div>
-      <div style={S.clockTime}>{t}</div>
-      <div style={S.clockSub}>{d}</div>
+    <div style={W.clockBox}>
+      <div style={W.clockLabel}>{label}</div>
+      <div style={W.clockTime}>{t}</div>
+      <div style={W.clockSub}>{d}</div>
     </div>
   );
 }
@@ -92,8 +80,6 @@ export function DestinationSwitcher({ tripId, currentDest, onSwitch }) {
   const [destinations, setDestinations] = useState([]);
 
   useEffect(() => {
-    // Load a curated set: the trip's primary destination + other popular destinations
-    // that might be relevant (for multi-stop trips, user picks which to view)
     supabase
       .from("destinations")
       .select("id, name, timezone, currency_code, country")
@@ -103,7 +89,6 @@ export function DestinationSwitcher({ tripId, currentDest, onSwitch }) {
 
   if (destinations.length === 0) return null;
 
-  // Show the current destination first, then a "change" dropdown
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -122,7 +107,7 @@ export function DestinationSwitcher({ tripId, currentDest, onSwitch }) {
             padding: "4px 10px",
             fontSize: 12,
             fontWeight: 700,
-            fontFamily: "'Nunito', sans-serif",
+            fontFamily: "'DM Sans', sans-serif",
             outline: "none",
             cursor: "pointer",
             maxWidth: 200,
@@ -151,7 +136,7 @@ export function TimezoneClocks({ destination }) {
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
-    <div style={S.clockRow}>
+    <div style={W.clockRow}>
       {destTimezone && <DestinationClock timezone={destTimezone} label={`📍 ${destName || "DESTINATION"}`} />}
       <DestinationClock timezone={userTimezone} label="🏠 YOUR TIME" />
     </div>
@@ -164,9 +149,8 @@ export function CurrencyConverter({ destCurrencyCode }) {
   const [amount, setAmount] = useState("100");
   const [fromCurrency, setFromCurrency] = useState("USD");
   const [toCurrency, setToCurrency] = useState(destCurrencyCode || "USD");
-  const [direction, setDirection] = useState("from"); // "from" = typing in fromCurrency, "to" = typing in toCurrency
+  const [direction, setDirection] = useState("from");
 
-  // Common currencies for the dropdown
   const commonCurrencies = ["USD", "NZD", "AUD", "FJD", "EUR", "GBP", "JPY", "CAD", "SGD", "THB", "IDR", "MXN", "CRC", "CZK", "ISK", "ZAR", "AED", "DOP", "AWG", "XPF"];
 
   useEffect(() => {
@@ -175,7 +159,6 @@ export function CurrencyConverter({ destCurrencyCode }) {
     }
   }, [destCurrencyCode]);
 
-  // Fetch all rates based on USD (base)
   const fetchRates = useCallback(async () => {
     try {
       const resp = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -192,7 +175,6 @@ export function CurrencyConverter({ destCurrencyCode }) {
 
   if (!rates || !destCurrencyCode || destCurrencyCode === "USD") return null;
 
-  // Convert between any two currencies via USD as base
   const convert = (amt, from, to) => {
     if (!rates[from] || !rates[to]) return 0;
     const inUSD = amt / rates[from];
@@ -216,58 +198,45 @@ export function CurrencyConverter({ destCurrencyCode }) {
     setAmount(converted);
   };
 
-  // Available currencies for dropdowns (include dest currency + common ones, deduplicated)
   const currencyOptions = [...new Set([destCurrencyCode, ...commonCurrencies])].filter((c) => rates[c]).sort();
 
   return (
-    <div style={S.currencyCard}>
-      <div style={S.label}>💱 CURRENCY CONVERTER</div>
+    <div style={W.currencyCard}>
+      <div style={W.label}>💱 CURRENCY CONVERTER</div>
 
-      {/* FROM row */}
-      <div style={S.currencyRow}>
+      <div style={W.currencyRow}>
         <div style={{ position: "relative", flex: 1 }}>
           <input
             type="number"
             value={direction === "from" ? amount : converted}
             onChange={(e) => { setDirection("from"); setAmount(e.target.value); }}
-            style={{ ...S.input, marginBottom: 0, fontSize: 16, fontWeight: 700 }}
+            style={{ ...W.input, marginBottom: 0, fontSize: 16, fontWeight: 700 }}
           />
         </div>
-        <select
-          value={fromCurrency}
-          onChange={(e) => setFromCurrency(e.target.value)}
-          style={S.currencySelect}
-        >
+        <select value={fromCurrency} onChange={(e) => setFromCurrency(e.target.value)} style={W.currencySelect}>
           {currencyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
-      {/* Swap button */}
       <div style={{ display: "flex", justifyContent: "center", margin: "4px 0" }}>
-        <button style={S.swapBtn} onClick={handleSwap} title="Swap currencies">⇅</button>
+        <button style={W.swapBtn} onClick={handleSwap} title="Swap currencies">⇅</button>
       </div>
 
-      {/* TO row */}
-      <div style={S.currencyRow}>
+      <div style={W.currencyRow}>
         <div style={{ position: "relative", flex: 1 }}>
           <input
             type="number"
             value={direction === "to" ? amount : converted}
             onChange={(e) => { setDirection("to"); setAmount(e.target.value); }}
-            style={{ ...S.input, marginBottom: 0, fontSize: 16, fontWeight: 700 }}
+            style={{ ...W.input, marginBottom: 0, fontSize: 16, fontWeight: 700 }}
           />
         </div>
-        <select
-          value={toCurrency}
-          onChange={(e) => setToCurrency(e.target.value)}
-          style={S.currencySelect}
-        >
+        <select value={toCurrency} onChange={(e) => setToCurrency(e.target.value)} style={W.currencySelect}>
           {currencyOptions.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
 
-      {/* Rate info */}
-      <div style={S.rateInfo}>
+      <div style={W.rateInfo}>
         1 {fromCurrency} = {rate1} {toCurrency} · 1 {toCurrency} = {rate2} {fromCurrency}
       </div>
     </div>
