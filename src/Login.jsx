@@ -1,28 +1,26 @@
 import { useState } from "react";
 import { supabase } from "./supabase";
+import { C, GLOBAL_CSS } from "./styles";
 
 const S = {
   wrap: {
     minHeight: "100vh",
-    background: "linear-gradient(135deg, #0a9396 0%, #005f73 100%)",
-    fontFamily: "'Nunito', sans-serif",
+    background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
+    fontFamily: "'DM Sans', sans-serif",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     padding: "20px",
   },
-  brand: {
-    textAlign: "center",
-    marginBottom: 24,
-  },
+  brand: { textAlign: "center", marginBottom: 24 },
   brandEmoji: { fontSize: 64, marginBottom: 8 },
   brandName: {
-    fontFamily: "'Playfair Display', serif",
-    fontSize: 32,
+    fontFamily: "'Bebas Neue', sans-serif",
+    fontSize: 36,
     color: "#fff",
     margin: "0 0 4px",
-    letterSpacing: 1,
+    letterSpacing: 4,
   },
   brandSub: {
     fontSize: 11,
@@ -40,28 +38,18 @@ const S = {
     boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
     textAlign: "center",
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#005f73",
-    marginBottom: 4,
-  },
-  cardSub: {
-    fontSize: 13,
-    color: "#78909c",
-    fontWeight: 600,
-    marginBottom: 20,
-  },
+  cardTitle: { fontSize: 16, fontWeight: 700, color: C.primaryDark, marginBottom: 4 },
+  cardSub: { fontSize: 13, color: C.textLight, fontWeight: 600, marginBottom: 20 },
   googleBtn: {
     width: "100%",
     padding: "12px 16px",
     background: "#fff",
-    color: "#1a2e35",
-    border: "1.5px solid #e0f2f1",
+    color: C.text,
+    border: `1.5px solid ${C.cardBorder}`,
     borderRadius: 10,
     fontSize: 14,
     fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
+    fontFamily: "'DM Sans', sans-serif",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
@@ -74,21 +62,21 @@ const S = {
     alignItems: "center",
     gap: 10,
     margin: "16px 0",
-    color: "#90a4ae",
+    color: C.textFaint,
     fontSize: 11,
     fontWeight: 700,
     letterSpacing: 1,
   },
-  dividerLine: { flex: 1, height: 1, background: "#e0f2f1" },
+  dividerLine: { flex: 1, height: 1, background: C.cardBorder },
   input: {
     width: "100%",
     padding: "11px 14px",
-    border: "1.5px solid #e0f2f1",
+    border: `1.5px solid ${C.cardBorder}`,
     borderRadius: 10,
     fontSize: 14,
-    fontFamily: "'Nunito', sans-serif",
-    background: "#f8fdfd",
-    color: "#1a2e35",
+    fontFamily: "'DM Sans', sans-serif",
+    background: C.iceInput,
+    color: C.text,
     outline: "none",
     boxSizing: "border-box",
     marginBottom: 10,
@@ -96,33 +84,33 @@ const S = {
   btn: {
     width: "100%",
     padding: "12px 20px",
-    background: "#0a9396",
+    background: C.primary,
     color: "#fff",
     border: "none",
     borderRadius: 10,
     fontSize: 14,
     fontWeight: 700,
-    fontFamily: "'Nunito', sans-serif",
+    fontFamily: "'DM Sans', sans-serif",
     cursor: "pointer",
     marginTop: 4,
   },
   toggle: {
     background: "none",
     border: "none",
-    color: "#0a9396",
+    color: C.primary,
     fontSize: 13,
     fontWeight: 700,
     cursor: "pointer",
     marginTop: 14,
-    fontFamily: "'Nunito', sans-serif",
+    fontFamily: "'DM Sans', sans-serif",
   },
   msg: (isError) => ({
     fontSize: 12,
-    color: isError ? "#c62828" : "#2e7d32",
+    color: isError ? C.red : C.green,
     fontWeight: 700,
     marginTop: 10,
     padding: "8px 12px",
-    background: isError ? "#fdecea" : "#e8f5e9",
+    background: isError ? C.redLight : C.greenLight,
     borderRadius: 8,
   }),
 };
@@ -166,6 +154,7 @@ export default function Login() {
 
   return (
     <div style={S.wrap}>
+      <style>{GLOBAL_CSS}</style>
       <div style={S.brand}>
         <div style={S.brandEmoji}>🌴</div>
         <h1 style={S.brandName}>Trip Planner</h1>
@@ -192,20 +181,8 @@ export default function Login() {
           <div style={S.dividerLine} />
         </div>
 
-        <input
-          style={S.input}
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          style={S.input}
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <input style={S.input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input style={S.input} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
 
         <button style={S.btn} onClick={handleEmail} disabled={loading}>
           {loading ? "..." : mode === "signin" ? "Sign In" : "Create Account"}
