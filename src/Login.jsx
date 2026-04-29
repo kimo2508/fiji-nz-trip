@@ -1,126 +1,148 @@
 import { useState } from "react";
-import { supabase } from "./supabase";
-import { C, GLOBAL_CSS } from "./styles";
+import { supabase } from "./supabaseClient";
 
 const S = {
   wrap: {
     minHeight: "100vh",
-    background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`,
-    fontFamily: "'DM Sans', sans-serif",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "20px",
+    background: "linear-gradient(180deg, #0a4d68 0%, #088395 50%, #05bfdb 100%)",
+    padding: "24px",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
-  brand: { textAlign: "center", marginBottom: 24 },
-  brandEmoji: { fontSize: 64, marginBottom: 8 },
-  brandName: {
-    fontFamily: "'Bebas Neue', sans-serif",
-    fontSize: 36,
+  brand: {
+    textAlign: "center",
+    marginBottom: "32px",
     color: "#fff",
-    margin: "0 0 4px",
-    letterSpacing: 4,
   },
-  brandSub: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.6)",
-    fontWeight: 700,
-    letterSpacing: 2,
-    textTransform: "uppercase",
+  brandEmoji: { fontSize: "56px", marginBottom: "8px" },
+  brandName: {
+    fontSize: "32px",
+    fontWeight: "700",
+    margin: "0 0 4px 0",
+    letterSpacing: "-0.5px",
   },
+  brandSub: { fontSize: "13px", opacity: 0.85, fontWeight: "500" },
   card: {
     background: "#fff",
-    borderRadius: 20,
-    padding: "28px 24px",
+    borderRadius: "20px",
+    padding: "32px 24px",
     width: "100%",
-    maxWidth: 380,
-    boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+    maxWidth: "380px",
+    boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+  },
+  cardTitle: {
+    fontSize: "22px",
+    fontWeight: "700",
+    color: "#0a4d68",
+    marginBottom: "4px",
     textAlign: "center",
   },
-  cardTitle: { fontSize: 16, fontWeight: 700, color: C.primaryDark, marginBottom: 4 },
-  cardSub: { fontSize: 13, color: C.textLight, fontWeight: 600, marginBottom: 20 },
+  cardSub: {
+    fontSize: "14px",
+    color: "#64748b",
+    marginBottom: "24px",
+    textAlign: "center",
+  },
   googleBtn: {
     width: "100%",
-    padding: "12px 16px",
+    padding: "14px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "12px",
     background: "#fff",
-    color: C.text,
-    border: `1.5px solid ${C.cardBorder}`,
-    borderRadius: 10,
-    fontSize: 14,
-    fontWeight: 700,
-    fontFamily: "'DM Sans', sans-serif",
+    color: "#1e293b",
+    fontSize: "15px",
+    fontWeight: "600",
     cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    marginBottom: 16,
+    gap: "10px",
   },
   divider: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    margin: "16px 0",
-    color: C.textFaint,
-    fontSize: 11,
-    fontWeight: 700,
-    letterSpacing: 1,
+    gap: "12px",
+    margin: "20px 0",
+    fontSize: "12px",
+    color: "#94a3b8",
+    fontWeight: "600",
   },
-  dividerLine: { flex: 1, height: 1, background: C.cardBorder },
+  dividerLine: { flex: 1, height: "1px", background: "#e2e8f0" },
   input: {
     width: "100%",
-    padding: "11px 14px",
-    border: `1.5px solid ${C.cardBorder}`,
-    borderRadius: 10,
-    fontSize: 14,
-    fontFamily: "'DM Sans', sans-serif",
-    background: C.iceInput,
-    color: C.text,
-    outline: "none",
+    padding: "12px 14px",
+    border: "1px solid #e2e8f0",
+    borderRadius: "10px",
+    fontSize: "15px",
+    marginBottom: "10px",
     boxSizing: "border-box",
-    marginBottom: 10,
+    fontFamily: "inherit",
   },
   btn: {
     width: "100%",
-    padding: "12px 20px",
-    background: C.primary,
-    color: "#fff",
+    padding: "14px",
     border: "none",
-    borderRadius: 10,
-    fontSize: 14,
-    fontWeight: 700,
-    fontFamily: "'DM Sans', sans-serif",
+    borderRadius: "12px",
+    background: "#0a4d68",
+    color: "#fff",
+    fontSize: "15px",
+    fontWeight: "600",
     cursor: "pointer",
-    marginTop: 4,
+    marginTop: "4px",
   },
   toggle: {
+    width: "100%",
     background: "none",
     border: "none",
-    color: C.primary,
-    fontSize: 13,
-    fontWeight: 700,
+    color: "#0a4d68",
+    fontSize: "13px",
+    fontWeight: "600",
     cursor: "pointer",
-    marginTop: 14,
-    fontFamily: "'DM Sans', sans-serif",
+    marginTop: "12px",
+    padding: "8px",
   },
   msg: (isError) => ({
-    fontSize: 12,
-    color: isError ? C.red : C.green,
-    fontWeight: 700,
-    marginTop: 10,
-    padding: "8px 12px",
-    background: isError ? C.redLight : C.greenLight,
-    borderRadius: 8,
+    marginTop: "16px",
+    padding: "10px 12px",
+    borderRadius: "8px",
+    fontSize: "13px",
+    background: isError ? "#fee2e2" : "#dcfce7",
+    color: isError ? "#991b1b" : "#166534",
+    textAlign: "center",
+    lineHeight: "1.4",
   }),
 };
 
+// Map Supabase errors to friendly messages
+const friendlyError = (err) => {
+  const m = (err?.message || "").toLowerCase();
+  if (m.includes("invalid login credentials")) {
+    return "Wrong email or password. Try again, or create an account if you're new.";
+  }
+  if (m.includes("user already registered") || m.includes("already been registered")) {
+    return "An account with that email already exists. Try signing in instead.";
+  }
+  if (m.includes("password should be at least")) {
+    return "Password must be at least 6 characters.";
+  }
+  if (m.includes("invalid email") || m.includes("unable to validate email")) {
+    return "That doesn't look like a valid email address.";
+  }
+  if (m.includes("rate limit") || m.includes("too many")) {
+    return "Too many attempts. Wait a minute and try again.";
+  }
+  return err?.message || "Something went wrong. Try again.";
+};
+
 export default function Login() {
-  const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState(null);
+  const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState(null);
 
   const handleGoogle = async () => {
     setLoading(true);
@@ -130,31 +152,88 @@ export default function Login() {
       options: { redirectTo: window.location.origin },
     });
     if (error) {
-      setMsg({ text: error.message, isError: true });
+      setMsg({ text: friendlyError(error), isError: true });
       setLoading(false);
     }
   };
 
   const handleEmail = async () => {
-    if (!email || !password) {
-      setMsg({ text: "Email and password required", isError: true });
+    // Client-side validation
+    if (!email.trim() || !password) {
+      setMsg({ text: "Enter both email and password.", isError: true });
       return;
     }
+    if (password.length < 6) {
+      setMsg({ text: "Password must be at least 6 characters.", isError: true });
+      return;
+    }
+
     setLoading(true);
     setMsg(null);
-    const fn = mode === "signin" ? supabase.auth.signInWithPassword : supabase.auth.signUp;
-    const { error } = await fn({ email, password });
-    if (error) {
-      setMsg({ text: error.message, isError: true });
-    } else if (mode === "signup") {
-      setMsg({ text: "Check your email to confirm your account!", isError: false });
+
+    if (mode === "signup") {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        // If they already have an account, auto-switch to sign-in mode
+        const m = (error.message || "").toLowerCase();
+        if (m.includes("already registered") || m.includes("already been registered")) {
+          setMode("signin");
+          setMsg({
+            text: "You already have an account. Enter your password to sign in.",
+            isError: false,
+          });
+        } else {
+          setMsg({ text: friendlyError(error), isError: true });
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Email confirmation is OFF in Supabase — signup returns a session immediately.
+      // The auth state listener in App.jsx detects it and switches views.
+      // Fallback: if for some reason no session came back, do an explicit sign-in.
+      if (!data?.session) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInError) {
+          setMsg({ text: friendlyError(signInError), isError: true });
+          setLoading(false);
+          return;
+        }
+      }
+      // On success, don't setLoading(false) — App.jsx swaps the view.
+      return;
     }
-    setLoading(false);
+
+    // mode === "signin"
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) {
+      setMsg({ text: friendlyError(error), isError: true });
+      setLoading(false);
+    }
+    // On success, App.jsx swaps the view.
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleEmail();
+  };
+
+  const toggleMode = () => {
+    setMode(mode === "signin" ? "signup" : "signin");
+    setMsg(null);
   };
 
   return (
     <div style={S.wrap}>
-      <style>{GLOBAL_CSS}</style>
       <div style={S.brand}>
         <div style={S.brandEmoji}>🌴</div>
         <h1 style={S.brandName}>Trip Planner</h1>
@@ -181,15 +260,33 @@ export default function Login() {
           <div style={S.dividerLine} />
         </div>
 
-        <input style={S.input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input style={S.input} type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input
+          style={S.input}
+          type="email"
+          placeholder="Email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        <input
+          style={S.input}
+          type="password"
+          placeholder={mode === "signup" ? "Password (min 6 characters)" : "Password"}
+          autoComplete={mode === "signup" ? "new-password" : "current-password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
 
         <button style={S.btn} onClick={handleEmail} disabled={loading}>
           {loading ? "..." : mode === "signin" ? "Sign In" : "Create Account"}
         </button>
 
-        <button style={S.toggle} onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setMsg(null); }}>
-          {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
+        <button style={S.toggle} onClick={toggleMode} disabled={loading}>
+          {mode === "signin"
+            ? "New here? Create an account"
+            : "Already have an account? Sign in"}
         </button>
 
         {msg && <div style={S.msg(msg.isError)}>{msg.text}</div>}
