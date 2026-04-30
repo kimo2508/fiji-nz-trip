@@ -93,6 +93,18 @@ const S = {
     cursor: "pointer",
     marginTop: "4px",
   },
+  btnSecondary: {
+    width: "100%",
+    padding: "14px",
+    border: "1px solid #0a4d68",
+    borderRadius: "12px",
+    background: "#fff",
+    color: "#0a4d68",
+    fontSize: "15px",
+    fontWeight: "600",
+    cursor: "pointer",
+    marginTop: "4px",
+  },
   toggle: {
     width: "100%",
     background: "none",
@@ -103,6 +115,13 @@ const S = {
     cursor: "pointer",
     marginTop: "12px",
     padding: "8px",
+  },
+  helperText: {
+    fontSize: "12px",
+    color: "#64748b",
+    textAlign: "center",
+    marginTop: "10px",
+    lineHeight: "1.5",
   },
   msg: (isError) => ({
     marginTop: "16px",
@@ -116,14 +135,13 @@ const S = {
   }),
 };
 
-// Map Supabase errors to friendly messages
 const friendlyError = (err) => {
   const m = (err?.message || "").toLowerCase();
   if (m.includes("invalid login credentials")) {
-    return "Wrong email or password. Try again, or create an account if you're new.";
+    return "Wrong email or password. Try the magic link option above instead.";
   }
   if (m.includes("user already registered") || m.includes("already been registered")) {
-    return "An account with that email already exists. Try signing in instead.";
+    return "An account with that email already exists. Use the magic link option above to sign in.";
   }
   if (m.includes("password should be at least")) {
     return "Password must be at least 6 characters.";
@@ -140,6 +158,7 @@ const friendlyError = (err) => {
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPasswordOption, setShowPasswordOption] = useState(false);
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -157,8 +176,37 @@ export default function Login() {
     }
   };
 
-  const handleEmail = async () => {
-    // Client-side validation
+  // Magic link — works for both new & returning users
+  const handleMagicLink = async () => {
+    if (!email.trim()) {
+      setMsg({ text: "Enter your email first.", isError: true });
+      return;
+    }
+    setLoading(true);
+    setMsg(null);
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: window.location.origin,
+        shouldCreateUser: true, // allows new users to be created on first click
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMsg({ text: friendlyError(error), isError: true });
+      return;
+    }
+
+    setMsg({
+      text: `✉️ Check your email! We sent a sign-in link to ${email.trim()}. Open it on the same device you want to use.`,
+      isError: false,
+    });
+  };
+
+  const handleEmailPassword = async () => {
     if (!email.trim() || !password) {
       setMsg({ text: "Enter both email and password.", isError: true });
       return;
@@ -178,12 +226,11 @@ export default function Login() {
       });
 
       if (error) {
-        // If they already have an account, auto-switch to sign-in mode
         const m = (error.message || "").toLowerCase();
         if (m.includes("already registered") || m.includes("already been registered")) {
           setMode("signin");
           setMsg({
-            text: "You already have an account. Enter your password to sign in.",
+            text: "You already have an account. Enter your password, or use the magic link above.",
             isError: false,
           });
         } else {
@@ -193,9 +240,6 @@ export default function Login() {
         return;
       }
 
-      // Email confirmation is OFF in Supabase — signup returns a session immediately.
-      // The auth state listener in App.jsx detects it and switches views.
-      // Fallback: if for some reason no session came back, do an explicit sign-in.
       if (!data?.session) {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -207,7 +251,6 @@ export default function Login() {
           return;
         }
       }
-      // On success, don't setLoading(false) — App.jsx swaps the view.
       return;
     }
 
@@ -220,16 +263,13 @@ export default function Login() {
       setMsg({ text: friendlyError(error), isError: true });
       setLoading(false);
     }
-    // On success, App.jsx swaps the view.
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") handleEmail();
-  };
-
-  const toggleMode = () => {
-    setMode(mode === "signin" ? "signup" : "signin");
-    setMsg(null);
+    if (e.key === "Enter") {
+      if (showPasswordOption) handleEmailPassword();
+      else handleMagicLink();
+    }
   };
 
   return (
@@ -269,25 +309,55 @@ export default function Login() {
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={handleKeyDown}
         />
-        <input
-          style={S.input}
-          type="password"
-          placeholder={mode === "signup" ? "Password (min 6 characters)" : "Password"}
-          autoComplete={mode === "signup" ? "new-password" : "current-password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
 
-        <button style={S.btn} onClick={handleEmail} disabled={loading}>
-          {loading ? "..." : mode === "signin" ? "Sign In" : "Create Account"}
-        </button>
-
-        <button style={S.toggle} onClick={toggleMode} disabled={loading}>
-          {mode === "signin"
-            ? "New here? Create an account"
-            : "Already have an account? Sign in"}
-        </button>
+        {!showPasswordOption ? (
+          <>
+            <button style={S.btn} onClick={handleMagicLink} disabled={loading}>
+              {loading ? "..." : "✉️ Email me a sign-in link"}
+            </button>
+            <div style={S.helperText}>
+              We'll send you a magic link — no password needed
+            </div>
+            <button
+              style={S.toggle}
+              onClick={() => { setShowPasswordOption(true); setMsg(null); }}
+              disabled={loading}
+            >
+              Use a password instead
+            </button>
+          </>
+        ) : (
+          <>
+            <input
+              style={S.input}
+              type="password"
+              placeholder={mode === "signup" ? "Password (min 6 characters)" : "Password"}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <button style={S.btn} onClick={handleEmailPassword} disabled={loading}>
+              {loading ? "..." : mode === "signin" ? "Sign In" : "Create Account"}
+            </button>
+            <button
+              style={S.toggle}
+              onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setMsg(null); }}
+              disabled={loading}
+            >
+              {mode === "signin"
+                ? "New here? Create an account"
+                : "Already have an account? Sign in"}
+            </button>
+            <button
+              style={S.toggle}
+              onClick={() => { setShowPasswordOption(false); setPassword(""); setMsg(null); }}
+              disabled={loading}
+            >
+              ← Back to magic link
+            </button>
+          </>
+        )}
 
         {msg && <div style={S.msg(msg.isError)}>{msg.text}</div>}
       </div>
