@@ -92,12 +92,6 @@ function TripDetail({ tripId, session, onBack }) {
     return row.created_by === currentUserId;
   }, [hasFullAccess, currentUserId]);
 
-  const displayNameFor = (user) => {
-    if (!user) return null;
-    const meta = user.raw_user_meta_data || user.user_metadata || {};
-    return meta.full_name || meta.name || (user.email ? user.email.split("@")[0] : "User");
-  };
-
   const load = useCallback(async () => {
     const tripResp = await supabase
       .from("trips")
@@ -158,6 +152,7 @@ function TripDetail({ tripId, session, onBack }) {
       setPacking([]); setEstimates([]); setTripBudget(0);
     }
 
+    // Build userMap from profiles table
     const ids = new Set();
     if (loadedTrip?.owner_id) ids.add(loadedTrip.owner_id);
     (d.data || []).forEach((r) => r.created_by && ids.add(r.created_by));
@@ -174,12 +169,33 @@ function TripDetail({ tripId, session, onBack }) {
       if (c.user_id) { ids.add(c.user_id); collabEmailById[c.user_id] = c.user_email; }
     });
 
+    // Fetch display names from profiles for all collected user IDs
+    const idArray = Array.from(ids);
+    let profilesById = {};
+    if (idArray.length > 0) {
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("id, display_name, email")
+        .in("id", idArray);
+      (profileRows || []).forEach((p) => {
+        profilesById[p.id] = p;
+      });
+    }
+
     const map = {};
     ids.forEach((id) => {
-      if (id === currentUserId) map[id] = displayNameFor(session.user);
-      else if (collabEmailById[id]) map[id] = collabEmailById[id].split("@")[0];
-      else if (id === loadedTrip?.owner_id) map[id] = "Trip owner";
-      else map[id] = "Someone";
+      const profile = profilesById[id];
+      if (profile?.display_name) {
+        map[id] = profile.display_name;
+      } else if (profile?.email) {
+        map[id] = profile.email.split("@")[0];
+      } else if (collabEmailById[id]) {
+        map[id] = collabEmailById[id].split("@")[0];
+      } else if (id === loadedTrip?.owner_id) {
+        map[id] = "Trip owner";
+      } else {
+        map[id] = "Someone";
+      }
     });
     setUserMap(map);
     setLoading(false);
