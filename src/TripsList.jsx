@@ -26,6 +26,9 @@ const S = {
   hero: { background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryDark} 100%)`, padding: "32px 20px 40px", position: "relative", overflow: "hidden" },
   heroTitle: { fontFamily: "'Bebas Neue', sans-serif", fontSize: 30, color: "#fff", margin: 0, letterSpacing: 3 },
   heroSub: { fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 600, marginTop: 4 },
+  nameRow: { display: "inline-flex", alignItems: "center", gap: 8, marginTop: 8, background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: "5px 12px 5px 14px", cursor: "pointer", border: "none", fontFamily: "'DM Sans', sans-serif" },
+  nameText: { fontSize: 13, color: "#fff", fontWeight: 700 },
+  pencil: { fontSize: 12, opacity: 0.85 },
   signOut: { position: "absolute", top: 16, right: 16, background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" },
   sec: { padding: "16px" },
   btn: (color = C.primary) => ({ background: color, color: "#fff", border: "none", borderRadius: 10, padding: "13px 20px", fontSize: 14, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", width: "100%", marginBottom: 16 }),
@@ -43,7 +46,73 @@ const S = {
   emptyEmoji: { fontSize: 56, marginBottom: 12 },
   emptyTitle: { fontSize: 16, fontWeight: 700, color: C.primaryDark, marginBottom: 6 },
   emptySub: { fontSize: 13, color: C.textLight },
+  // Modal styles
+  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 1000 },
+  sheet: { background: "#fff", borderRadius: 16, padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 20px 50px rgba(0,0,0,0.3)" },
+  modalTitle: { fontSize: 18, fontWeight: 800, color: C.primaryDark, marginBottom: 6 },
+  modalSub: { fontSize: 13, color: C.textLight, marginBottom: 16 },
+  input: { width: "100%", padding: "12px 14px", border: `1px solid ${C.cardBorder}`, borderRadius: 10, fontSize: 15, marginBottom: 12, boxSizing: "border-box", fontFamily: "inherit" },
+  modalBtn: { width: "100%", padding: "13px", border: "none", borderRadius: 10, background: C.primary, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 8 },
+  modalBtnSecondary: { width: "100%", padding: "13px", border: `1px solid ${C.cardBorder}`, borderRadius: 10, background: "#fff", color: C.textMid, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" },
 };
+
+function ProfileModal({ currentName, userId, onClose, onSaved }) {
+  const [name, setName] = useState(currentName || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const save = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Name can't be empty.");
+      return;
+    }
+    if (trimmed.length > 40) {
+      setError("Keep it under 40 characters.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const { error: upsertError } = await supabase
+      .from("profiles")
+      .update({ display_name: trimmed })
+      .eq("id", userId);
+
+    setSaving(false);
+
+    if (upsertError) {
+      setError("Couldn't save. Try again.");
+      return;
+    }
+
+    onSaved(trimmed);
+  };
+
+  return (
+    <div style={S.overlay} onClick={onClose}>
+      <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
+        <div style={S.modalTitle}>Your display name</div>
+        <div style={S.modalSub}>This is what shows on your badges when you add stuff to a trip.</div>
+        <input
+          style={S.input}
+          type="text"
+          placeholder="e.g. Grace, Tim T, Mom"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={40}
+          autoFocus
+        />
+        {error && <div style={{ color: C.red, fontSize: 12, marginBottom: 10 }}>{error}</div>}
+        <button style={S.modalBtn} onClick={save} disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button style={S.modalBtnSecondary} onClick={onClose} disabled={saving}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 
 export default function TripsList({ session, onSelectTrip }) {
   const [trips, setTrips] = useState([]);
@@ -52,6 +121,18 @@ export default function TripsList({ session, onSelectTrip }) {
   const [shareTrip, setShareTrip] = useState(null);
   const [collabTripIds, setCollabTripIds] = useState(new Set());
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [displayName, setDisplayName] = useState("");
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
+  const loadProfile = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", session.user.id)
+      .maybeSingle();
+    if (data?.display_name) setDisplayName(data.display_name);
+    else setDisplayName(session.user.email?.split("@")[0] || "");
+  };
 
   const loadTrips = async () => {
     setLoading(true);
@@ -77,7 +158,7 @@ export default function TripsList({ session, onSelectTrip }) {
     setLoading(false);
   };
 
-  useEffect(() => { loadTrips(); }, [session]);
+  useEffect(() => { loadTrips(); loadProfile(); }, [session]);
 
   const handleSignOut = async () => { await supabase.auth.signOut(); };
 
@@ -90,6 +171,11 @@ export default function TripsList({ session, onSelectTrip }) {
     setConfirmDelete(null); loadTrips();
   };
 
+  const handleNameSaved = (newName) => {
+    setDisplayName(newName);
+    setShowProfileModal(false);
+  };
+
   const userEmail = session?.user?.email || "";
 
   return (
@@ -98,6 +184,10 @@ export default function TripsList({ session, onSelectTrip }) {
         <button style={S.signOut} onClick={handleSignOut}>Sign out</button>
         <p style={S.heroTitle}>My Trips 🌴</p>
         <div style={S.heroSub}>{userEmail}</div>
+        <button style={S.nameRow} onClick={() => setShowProfileModal(true)} title="Edit your display name">
+          <span style={S.nameText}>👤 {displayName || "Set your name"}</span>
+          <span style={S.pencil}>✏️</span>
+        </button>
       </div>
 
       <div style={S.sec}>
@@ -162,6 +252,14 @@ export default function TripsList({ session, onSelectTrip }) {
 
       {showNewTrip && <NewTripModal session={session} onClose={() => setShowNewTrip(false)} onCreated={handleTripCreated} />}
       {shareTrip && <ShareModal trip={shareTrip} onClose={() => setShareTrip(null)} />}
+      {showProfileModal && (
+        <ProfileModal
+          currentName={displayName}
+          userId={session.user.id}
+          onClose={() => setShowProfileModal(false)}
+          onSaved={handleNameSaved}
+        />
+      )}
     </div>
   );
 }
