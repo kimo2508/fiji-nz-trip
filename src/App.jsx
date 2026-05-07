@@ -4,6 +4,7 @@ import Login from "./Login";
 import TripsList from "./TripsList";
 import { TimezoneClocks, CurrencyConverter, DestinationSwitcher } from "./TripWidgets";
 import { S, C, CAT_COLORS, BADGE_COLORS, GLOBAL_CSS } from "./styles";
+import Vault from "./Vault";
 
 const PACKING_CATEGORIES = ["Clothing", "Toiletries", "Documents", "Electronics", "Health", "Beach & Water", "Misc"];
 const ACTIVITY_CATEGORIES = ["🍽️ Restaurant", "🏄 Activity", "🗺️ Sightseeing", "🚗 Transport", "📝 Note"];
@@ -261,7 +262,7 @@ function TripDetail({ tripId, session, onBack }) {
   const tripStart = trip?.start_date;
   const viewingDest = activeDest || destination;
 
-  const tabs = [{ id: "home", l: "🏠 HOME" }, { id: "itinerary", l: "📅 ITINERARY" }, { id: "flights", l: "✈️ FLIGHTS" }, { id: "hotels", l: "🏨 HOTELS" }];
+  const tabs = [{ id: "home", l: "🏠 HOME" }, { id: "itinerary", l: "📅 ITINERARY" }, { id: "flights", l: "✈️ FLIGHTS" }, { id: "hotels", l: "🏨 HOTELS" }, { id: "vault", l: "🔐 VAULT" }];
   if (hasFullAccess) { tabs.push({ id: "packing", l: "🎒 PACKING" }); tabs.push({ id: "budget", l: "💰 BUDGET" }); }
 
   const ownerStats = [{ v: daysUntil(tripStart), l: "DAYS TO GO" }, { v: days.length, l: "DAYS PLANNED" }, { v: `${packedCount}/${packing.length}`, l: "PACKED" }, { v: fmt(confirmedTotal), l: "CONFIRMED" }];
@@ -428,6 +429,17 @@ function TripDetail({ tripId, session, onBack }) {
             </div></div>
           ); })}</div>
         </div>
+      )}
+
+      {tab === "vault" && (
+        <Vault
+          tripId={tripId}
+          session={session}
+          hasFullAccess={hasFullAccess}
+          currentUserId={currentUserId}
+          userMap={userMap}
+          BADGE_COLORS={BADGE_COLORS}
+        />
       )}
 
       {hasFullAccess && tab === "packing" && (
